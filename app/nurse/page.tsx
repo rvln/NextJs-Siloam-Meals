@@ -1,9 +1,9 @@
-import NursePage from "./components/patient"
+import ManagePatient from "./components/Patient"
 
 export default function Home() {
     return (
-        <main className="min-h-screen bg-gray-400">            
-            <NursePage />
+        <main className="min-h-screen bg-gray-400">
+            <ManagePatient />
         </main>
     )
 }

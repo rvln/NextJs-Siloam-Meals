@@ -102,12 +102,13 @@ export default function Order({ selectedDish, sesi, uuid, onBack }: OrderProps) 
                 alert("Gagal membuat pesanan: " + error.message);
                 return;
             }
-            setShowSuccessModal(true);
+            setOpenModal(false)
         } catch (err) {
             console.error("Error saat membuat pesanan:", err);
             alert("Terjadi kesalahan saat membuat pesanan");
         } finally {
             setProcessing(false);
+            setShowSuccessModal(true);
         }
     }
     
@@ -242,7 +243,7 @@ export default function Order({ selectedDish, sesi, uuid, onBack }: OrderProps) 
             {showSuccessModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-xl p-6 w-80 text-center">
-                        <h2 className="text-lg font-semibold mb-3">Pesanan Berhasil 🎉</h2>
+                        <h2 className="text-lg font-semibold mb-3 text-black">Pesanan Berhasil 🎉</h2>
                         <p className="text-gray-600 mb-6">Pesanan kamu sudah dibuat.</p>
                         <button
                             onClick={() => {

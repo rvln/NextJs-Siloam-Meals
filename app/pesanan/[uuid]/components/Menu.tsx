@@ -29,7 +29,7 @@ export interface MenuItem {
     nama: string;
     image: string;
     jenis: string;
-    utamaDari?: Utama[]; 
+    utamaDari?: Utama[];
 }
 
 interface MenuProps {
@@ -147,7 +147,7 @@ export default function Menu({ uuid, initialData }: MenuProps) {
 
     if (showOrder && selectedDish) {
         console.log("selectedDish di menu.tsx:", selectedDish)
-        return <Order selectedDish={selectedDish} uuid={uuid} sesi={activeMenu?.namaMenu || ""}  onBack={handleBackToMenu} />;
+        return <Order selectedDish={selectedDish} uuid={uuid} sesi={activeMenu?.namaMenu || ""} onBack={handleBackToMenu} />;
     }
 
 
@@ -174,7 +174,7 @@ export default function Menu({ uuid, initialData }: MenuProps) {
                 {error && <p className="text-red-300">Error: {error}</p>}
 
                 {!isLoading && !error && menuList.length > 0 && (
-                    <div className="flex bg-white rounded-xl p-1 max-w-sm mx-auto">
+                    <div className="flex bg-white rounded-xl p-1 max-w-sm mx-auto gap-1">
                         {menuList.map((menu) => {
                             const isDisabled = disabledSessions.includes(menu.namaMenu);
                             return (
@@ -183,13 +183,13 @@ export default function Menu({ uuid, initialData }: MenuProps) {
                                     onClick={() => !isDisabled && setSelectedMenuId(menu.idMenu)}
                                     disabled={isDisabled}
                                     className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors
-                    ${selectedMenuId === menu.idMenu
+                                        ${selectedMenuId === menu.idMenu
                                             ? "bg-green-600 text-white"
                                             : isDisabled
                                                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                                                 : "text-gray-600 hover:text-gray-800"}`}
                                 >
-                                    {menu.namaMenu} {isDisabled ? "(Sudah dipesan)" : ""}
+                                    {isDisabled ? "Sudah dipesan" : menu.namaMenu}
                                 </button>
                             );
                         })}
@@ -201,37 +201,37 @@ export default function Menu({ uuid, initialData }: MenuProps) {
             <div className="space-y-12">
                 {activeMenu ? (
                     activeMenu.Makanan.map((item) => (
-                    <div key={item.idMakanan} className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                        {/* Food Image */}
-                        <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
-                            <Image 
-                            src={item.gambar || "/placeholder.svg"} 
-                            alt={item.namaMakanan} 
-                            className="w-full h-full object-cover" 
-                            width={80}
-                            height={80}
-                            sizes="(max-width: 80px) 100vw, 80px"
-                            priority
-                            />
-                        </div>
+                        <div key={item.idMakanan} className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+                            {/* Food Image */}
+                            <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
+                                <Image
+                                    src={item.gambar || "/placeholder.svg"}
+                                    alt={item.namaMakanan}
+                                    className="w-full h-full object-cover"
+                                    width={80}
+                                    height={80}
+                                    sizes="(max-width: 80px) 100vw, 80px"
+                                    priority
+                                />
+                            </div>
 
-                        {/* Content */}
-                        <div className="flex-1 flex flex-col justify-center">
-                            <h3 className="text-gray-800 font-medium text-lg mb-3">{item.namaMakanan}</h3>
+                            {/* Content */}
+                            <div className="flex-1 flex flex-col justify-center">
+                                <h3 className="text-gray-800 font-medium text-lg mb-3">{item.namaMakanan}</h3>
 
-                            {/* Order Button */}
-                            <button
-                                onClick={() => handleOrderClick(item)}
-                                className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors self-start"
-                            >
-                                Klik untuk pesan
-                            </button>
+                                {/* Order Button */}
+                                <button
+                                    onClick={() => handleOrderClick(item)}
+                                    className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors self-start"
+                                >
+                                    Klik untuk pesan
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                ))
-            ) : (
-                !isLoading && <p className="text-white text-center">Kamu sudah selesai memesan</p>
-            )}
+                    ))
+                ) : (
+                    !isLoading && <p className="text-white text-center">Kamu sudah selesai memesan</p>
+                )}
                 {activeMenu && activeMenu.Makanan.length === 0 && (
                     <p className="text-center text-white">Tidak ada makanan di menu ini.</p>
                 )}
