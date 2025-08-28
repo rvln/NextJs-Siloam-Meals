@@ -1,27 +1,28 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import PatientDetailView from "./DetailPatient"
-import CreatePatient from "./CreatePatient"
-import EditPatient from "./EditPatient"
 import NotificationModal from "@/components/ui/NotificationModal"
-import { Patient, ApiPatient, CreatePatientFormData } from "../types/patient"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import LogoutButton from "@/components/ui/LogoutButton"
 import { jwtDecode } from "jwt-decode"
+import { useEffect, useMemo, useState } from "react"
+import { ApiMakanan, Makanan } from "../types/food"
+import CreateFood from "./CreateFood"
+import EditFood from "./EditFood"
+import FoodDetailView from "./DetailFood"
 
 interface JwtPayload {
     username: string;
     role: string;
 }
 
-export default function ManagePatient() {
-    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-    const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+export default function ManageFood() {
+    const [activeTab, setActiveTab] = useState<'utama' | 'pendamping'>('utama');
+    const [selectedFood, setSelectedFood] = useState<Makanan | null>(null)
+    const [foodToDelete, setFoodToDelete] = useState<Makanan | null>(null);
     const [isEditing, setIsEditing] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
-    const [patients, setPatients] = useState<Patient[]>([])
+    const [foods, setFoods] = useState<Makanan[]>([])
     const [searchTerm, setSearchTerm] = useState("")
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalContent, setModalContent] = useState({
@@ -51,44 +52,32 @@ export default function ManagePatient() {
 
 
     useEffect(() => {
-        async function fetchPatients() {
+        async function fetchFood() {
             try {
                 const token = localStorage.getItem('accessToken');
-                const url = `${process.env.NEXT_PUBLIC_API_URL}/pasien`
-                const res = await fetch(url, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                })
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.message || "Gagal mengambil data pasien");
-                }
-                const result = await res.json()
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/makanan`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error("Gagal mengambil data makanan");
 
-                const dataArray: ApiPatient[] = Array.isArray(result)
-                    ? result
-                    : Array.isArray(result.data)
-                        ? result.data
-                        : []
+                const dataFromApi: ApiMakanan[] = await res.json();
 
-                const mappedPatients: Patient[] = dataArray.map((p) => ({
-                    id: p.idPasien,
-                    uuid: p.uuid,
-                    namaPasien: p.namaPasien,
-                    mr: p.mr,
-                    tempatTidur: p.tempatTidur,
-                    diagnosa: p.diagnosa,
-                    Pantangan: p.Pantangan ? p.Pantangan.map((pt) => ({
-                        namaPantangan: pt.namaPantangan,
-                        makananId: pt.makanan ? pt.makanan.idMakanan : null,
-                        namaMakanan: pt.makanan ? pt.makanan.namaMakanan : "",
+                const cleanedFoods: Makanan[] = dataFromApi.map(apiItem => ({
+                    id: apiItem.idMakanan,
+                    nama: apiItem.namaMakanan,
+                    jenis: apiItem.jenis,
+                    gambar: apiItem.gambar,
+                    createdBy: apiItem.user.namaUser,
+                    utamaDari: apiItem.utamaDari ? apiItem.utamaDari.map(k => ({
+                        id: k.idMakanan,
+                        nama: k.namaMakanan,
+                        jenis: k.jenis,
                     })) : [],
                 }))
 
-                setPatients(mappedPatients)
-            } catch (err) {
-                console.error("Gagal fetch pasien:", err)
+                setFoods(cleanedFoods);
+            } catch (err: unknown) {
+                console.error("Gagal mengambil data:", err);
                 if (err instanceof Error) {
                     setModalContent({
                         title: "Terjadi Kesalahan",
@@ -105,67 +94,63 @@ export default function ManagePatient() {
                 setIsModalOpen(true);
             }
         }
+        fetchFood();
+    }, []);
 
-        fetchPatients()
-    }, [])
+    const { makananUtama, makananPendamping } = useMemo(() => {
+        const utama = foods.filter(f => f.jenis === 'Lauk');
+        const pendamping = foods.filter(f => f.jenis !== 'Lauk');
+        return { makananUtama: utama, makananPendamping: pendamping };
+    }, [foods]);
 
-    const filteredPatients = patients.filter(
-        (patient) =>
-            patient.namaPasien.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            patient.mr.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            patient.tempatTidur.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            patient.diagnosa.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
+    const sideDishOptions = useMemo(() => {
+        return makananPendamping.reduce((acc, food) => {
+            if (!acc[food.jenis]) acc[food.jenis] = [];
+            acc[food.jenis].push(food);
+            return acc;
+        }, {} as Record<string, Makanan[]>);
+    }, [makananPendamping]);
 
-    const handleCreatePatient = async (newPatientData: CreatePatientFormData) => {
+
+    const filteredFoodItems = (activeTab === 'utama' ? makananUtama : makananPendamping)
+        .filter(food => food.nama.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const handleCreateFood = async (formData: FormData) => {
         try {
             const token = localStorage.getItem('accessToken');
-
-            const cleanedData = {
-                ...newPatientData,
-                Pantangan: newPatientData.Pantangan.filter(p => p.makananId && p.namaPantangan),
-            };
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pasien`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/makanan`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
-                body: JSON.stringify(cleanedData),
+                headers: { "Authorization": `Bearer ${token}` },
+                body: formData,
             });
-
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.message || "Gagal mengambil data pasien");
+                const errData = await res.json();
+                throw new Error(errData.message || "Gagal membuat makanan baru");
             }
-
-            const created: ApiPatient = await res.json();
-
-            const mapped: Patient = {
-                id: created.idPasien,
-                uuid: created.uuid,
-                namaPasien: created.namaPasien,
-                mr: created.mr,
-                tempatTidur: created.tempatTidur,
-                diagnosa: created.diagnosa,
-                Pantangan: created.Pantangan.map((pt) => ({
-                    namaPantangan: pt.namaPantangan,
-                    makananId: pt.makanan ? pt.makanan.idMakanan : null,
-                    namaMakanan: pt.makanan ? pt.makanan.namaMakanan : "",
+            const created: ApiMakanan = await res.json();
+            const newFood: Makanan = {
+                id: created.idMakanan,
+                nama: created.namaMakanan,
+                jenis: created.jenis,
+                gambar: created.gambar,
+                createdBy: created.user.namaUser,
+                utamaDari: created.utamaDari.map(k => ({
+                    id: k.idMakanan,
+                    nama: k.namaMakanan,
+                    jenis: k.jenis,
                 })),
             };
 
-            setPatients([...patients, mapped]);
+            setFoods(prev => [...prev, newFood]);
             setIsCreating(false);
             setModalContent({
-                title: "Berhasil!",
-                message: "Pasien baru telah berhasil ditambahkan ke dalam sistem.",
+                title: "Berhasil",
+                message: "Makanan baru berhasil ditambahkan.",
                 type: 'success'
             });
             setIsModalOpen(true);
         } catch (err: unknown) {
-            console.error("Gagal tambah pasien:", err);
+            console.error("Gagal tambah makanan:", err);
             if (err instanceof Error) {
                 setModalContent({
                     title: "Terjadi Kesalahan",
@@ -183,55 +168,47 @@ export default function ManagePatient() {
         }
     };
 
-    const handleEditPatient = (patient: Patient) => {
-        setSelectedPatient(patient)
-        setIsEditing(true)
-    }
+    const handleEditFood = (food: Makanan) => {
+        setSelectedFood(food);
+        setIsEditing(true);
+    };
 
-    const handleSavePatient = async (updatedPatient: Patient) => {
+    const handleSaveFood = async (id: number, formData: FormData) => {
         try {
-            const token = localStorage.getItem("accessToken");
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pasien/${updatedPatient.id}`, {
+            const token = localStorage.getItem('accessToken');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/makanan/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                body: JSON.stringify({
-                    mr: updatedPatient.mr,
-                    namaPasien: updatedPatient.namaPasien,
-                    tempatTidur: updatedPatient.tempatTidur,
-                    diagnosa: updatedPatient.diagnosa,
-                    Pantangan: updatedPatient.Pantangan,
-                }),
-            })
-
-            if (!res.ok) throw new Error("Gagal update pasien")
-
-            const saved: ApiPatient = await res.json()
-
-            const mapped: Patient = {
-                id: saved.idPasien,
-                uuid: saved.uuid,
-                namaPasien: saved.namaPasien,
-                mr: saved.mr,
-                tempatTidur: saved.tempatTidur,
-                diagnosa: saved.diagnosa,
-                Pantangan: saved.Pantangan.map((pt) => ({
-                    namaPantangan: pt.namaPantangan,
-                    makananId: pt.makanan ? pt.makanan.idMakanan : null,
-                    namaMakanan: pt.makanan ? pt.makanan.namaMakanan : "",
-                })),
+                body: formData,
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || "Gagal memperbarui makanan");
             }
-
-            setPatients(patients.map((p) => (p.id === mapped.id ? mapped : p)))
-            setSelectedPatient(mapped)
-            setIsEditing(false)
+            const saved: ApiMakanan = await res.json();
+            const updated: Makanan = {
+                id: saved.idMakanan,
+                nama: saved.namaMakanan,
+                jenis: saved.jenis,
+                gambar: saved.gambar,
+                createdBy: saved.user.namaUser,
+                utamaDari: saved.utamaDari.map(k => ({
+                    id: k.idMakanan,
+                    nama: k.namaMakanan,
+                    jenis: k.jenis,
+                })),
+            };
+            setFoods(foods.map(f => f.id === updated.id ? updated : f));
+            setSelectedFood(updated);
+            setIsEditing(false);
             setModalContent({
-                title: "Berhasil!",
-                message: "Pasien baru telah berhasil ditambahkan ke dalam sistem.",
+                title: "Berhasil",
+                message: "Data makanan berhasil diperbarui.",
                 type: 'success'
             });
             setIsModalOpen(true);
-        } catch (err) {
-            console.error("Gagal edit pasien:", err)
+        } catch (err: unknown) {
+            console.error("Gagal memperbarui data makanan:", err);
             if (err instanceof Error) {
                 setModalContent({
                     title: "Terjadi Kesalahan",
@@ -247,46 +224,36 @@ export default function ManagePatient() {
             }
             setIsModalOpen(true);
         }
-    }
+    };
 
-    const handleDeletePatient = (patient: Patient) => {
-        setPatientToDelete(patient);
+    const handleDeleteFood = (food: Makanan) => {
+        setFoodToDelete(food);
     };
 
     const confirmDelete = async () => {
-        if (!patientToDelete) return;
-
+        if (!foodToDelete) return;
         try {
             const token = localStorage.getItem('accessToken');
-            if (!token) throw new Error("Token tidak ditemukan, harap login kembali.");
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pasien/${patientToDelete.id}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/makanan/${foodToDelete.id}`, {
                 method: "DELETE",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                },
+                headers: { "Authorization": `Bearer ${token}` },
             });
-
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.message || "Gagal menghapus data pasien");
+                const errData = await res.json();
+                throw new Error(errData.message || "Gagal menghapus makanan");
             }
-
-            setPatients(patients.filter((p) => p.id !== patientToDelete.id));
-
-            if (selectedPatient?.id === patientToDelete.id) {
-                setSelectedPatient(null);
-                setIsEditing(false);
+            setFoods(foods.filter(f => f.id !== foodToDelete.id));
+            if (selectedFood?.id === foodToDelete.id) {
+                setSelectedFood(null);
             }
-
             setModalContent({
-                title: "Berhasil!",
-                message: `Data pasien ${patientToDelete.namaPasien} telah berhasil dihapus.`,
+                title: "Berhasil",
+                message: `Makanan "${foodToDelete.nama}" telah dihapus.`,
                 type: 'success'
             });
             setIsModalOpen(true);
-
         } catch (err: unknown) {
+            console.error("Gagal menghapus makanan:", err);
             if (err instanceof Error) {
                 setModalContent({
                     title: "Terjadi Kesalahan",
@@ -302,7 +269,7 @@ export default function ManagePatient() {
             }
             setIsModalOpen(true);
         } finally {
-            setPatientToDelete(null);
+            setFoodToDelete(null);
         }
     };
 
@@ -323,10 +290,25 @@ export default function ManagePatient() {
                         <div className="bg-gray-200 rounded-lg shadow-sm border border-gray-200">
                             <div className="p-6 border-b border-gray-200">
                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-lg font-semibold text-gray-900">Daftar Pasien</h2>
-                                    <span className="text-sm text-gray-500">{filteredPatients.length} pasien</span>
+                                    <h2 className="text-lg font-semibold text-gray-900">Daftar Makanan</h2>
+                                    <span className="text-sm text-gray-500">{filteredFoodItems.length} makanan</span>
                                 </div>
-
+                                <div className="mb-4 border-b">
+                                    <nav className="-mb-px flex space-x-6">
+                                        <button
+                                            onClick={() => setActiveTab('utama')}
+                                            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'utama' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                                        >
+                                            Utama ({makananUtama.length})
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('pendamping')}
+                                            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'pendamping' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                                        >
+                                            Pendamping ({makananPendamping.length})
+                                        </button>
+                                    </nav>
+                                </div>
                                 <div className="relative mb-4">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,13 +322,12 @@ export default function ManagePatient() {
                                     </div>
                                     <input
                                         type="text"
-                                        placeholder="Cari pasien..."
+                                        placeholder="Cari makanan..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm text-black"
                                     />
                                 </div>
-
                                 <button
                                     onClick={() => setIsCreating(true)}
                                     className="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm"
@@ -354,30 +335,28 @@ export default function ManagePatient() {
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                     </svg>
-                                    Tambah Pasien Baru
+                                    Tambah Makanan Baru
                                 </button>
                             </div>
 
                             <div className="max-h-96 overflow-y-auto">
-                                {filteredPatients.map((patient) => (
+                                {filteredFoodItems.map((food) => (
                                     <div
-                                        key={patient.id}
-                                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedPatient?.id === patient.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
+                                        key={food.id}
+                                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedFood?.id === food.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
                                             }`}
-                                        onClick={() => setSelectedPatient(patient)}
+                                        onClick={() => { setSelectedFood(food); setIsEditing(false); }}
                                     >
                                         <div className="flex justify-between items-start mb-1">
-                                            <h3 className="font-medium text-gray-900 text-sm">{patient.namaPasien}</h3>
-                                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{patient.tempatTidur}</span>
+                                            <h3 className="font-medium text-gray-900 text-sm">{food.nama}</h3>
+                                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{food.jenis}</span>
                                         </div>
-                                        <p className="text-xs text-gray-600 mb-1">MR: {patient.mr}</p>
-                                        <p className="text-xs text-gray-600 mb-2">{patient.diagnosa}</p>
+                                        <p className="text-xs text-gray-600 mb-1">{food.createdBy}</p>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs text-orange-600 font-medium">{patient.Pantangan.length} Pantangan</span>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation()
-                                                    handleDeletePatient(patient);
+                                                    handleDeleteFood(food);
                                                 }}
                                                 className="text-red-400 hover:text-red-600 transition-colors"
                                             >
@@ -399,19 +378,24 @@ export default function ManagePatient() {
 
                     <div className="mt-8 lg:mt-0 lg:col-span-8 xl:col-span-9">
                         {isCreating ? (
-                            <CreatePatient onCreate={handleCreatePatient} onCancel={() => setIsCreating(false)} />
-                        ) : selectedPatient ? (
+                            <CreateFood 
+                            onCreate={handleCreateFood} 
+                            onCancel={() => setIsCreating(false)}
+                            sideDishOptions={sideDishOptions}
+                            />
+                        ) : selectedFood ? (
                             isEditing ? (
-                                <EditPatient
-                                    patient={selectedPatient}
-                                    onSave={handleSavePatient}
+                                <EditFood
+                                    food={selectedFood}
+                                    onSave={handleSaveFood}
                                     onCancel={() => setIsEditing(false)}
+                                    sideDishOptions={sideDishOptions}
                                 />
                             ) : (
-                                <PatientDetailView patient={selectedPatient} onEdit={() => handleEditPatient(selectedPatient)} />
+                                <FoodDetailView food={selectedFood} onEdit={() => handleEditFood(selectedFood)} />
                             )
                         ) : (
-                                    <div className="bg-gray-200 rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                            <div className="bg-gray-200 rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                                 <svg
                                     className="w-16 h-16 text-gray-600 mx-auto mb-4"
                                     fill="none"
@@ -425,9 +409,9 @@ export default function ManagePatient() {
                                         d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                                     />
                                 </svg>
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">Pilih Pasien</h3>
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">Pilih Makanan</h3>
                                 <p className="text-gray-500">
-                                    Pilih pasien dari daftar di sebelah kiri untuk melihat detail dan mengelola data pasien.
+                                    Pilih makanan dari daftar di sebelah kiri untuk melihat detail dan mengelola data makanan.
                                 </p>
                             </div>
                         )}
@@ -442,17 +426,17 @@ export default function ManagePatient() {
                 type={modalContent.type}
             />
 
-            <Dialog open={!!patientToDelete} onOpenChange={() => setPatientToDelete(null)}>
+            <Dialog open={!!foodToDelete} onOpenChange={() => setFoodToDelete(null)}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Konfirmasi Penghapusan</DialogTitle>
                         <DialogDescription>
-                            Apakah Anda yakin ingin menghapus data pasien atas nama{" "}
-                            <strong>{patientToDelete?.namaPasien}</strong>? Tindakan ini tidak dapat dibatalkan.
+                            Apakah Anda yakin ingin menghapus data makanan atas nama{" "}
+                            <strong>{foodToDelete?.nama}</strong>? Tindakan ini tidak dapat dibatalkan.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setPatientToDelete(null)}>Batal</Button>
+                        <Button variant="outline" onClick={() => setFoodToDelete(null)}>Batal</Button>
                         <Button variant="destructive" onClick={confirmDelete}>Hapus</Button>
                     </DialogFooter>
                 </DialogContent>
