@@ -11,6 +11,12 @@ export interface Makanan {
     gambar: string | null;
     createdBy: string;
     utamaDari: KomponenUtama[];
+    tanggalTersedia: MakananTanggal[];
+}
+
+export interface MakananTanggal {
+    id: number;
+    tanggal: string; // ISO string dari backend
 }
 
 export interface ApiMakanan {
@@ -23,6 +29,40 @@ export interface ApiMakanan {
     };
     utamaDari: {
         idMakanan: number;
+        namaMakanan: string;
+        jenis: Jenis;
+    }[];
+    tanggalTersedia: MakananTanggal[];
+}
+
+export interface DetailMakanan {
+    idMakanan: number;
+    namaMakanan: string;
+    jenis: Jenis;
+}
+
+export interface ApiPesananDetail {
+    idPesananDetail: number;
+    makanan: DetailMakanan;
+}
+
+export interface ApiPesanan {
+    idPesanan: number;
+    sesi: string; // 'Menu Pagi', 'Menu Siang', dll.
+    tanggal: string;
+    pasien: {
+        namaPasien: string;
+    };
+    PesananDetail: ApiPesananDetail[];
+}
+
+export interface Pesanan {
+    id: number;
+    sesi: string;
+    tanggal: Date;
+    namaPasien: string;
+    detail: {
+        id: number;
         namaMakanan: string;
         jenis: Jenis;
     }[];

@@ -24,8 +24,6 @@ export default function PatientDetailView({ patient, onEdit }: PatientDetailView
     });
 
     const handleGenerateQr = async () => {
-        if (qrCodeUrl) return;
-
         setIsLoadingQr(true);
         try {
             const token = localStorage.getItem('accessToken');

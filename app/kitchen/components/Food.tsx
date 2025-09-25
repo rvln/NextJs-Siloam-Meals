@@ -3,18 +3,11 @@
 import NotificationModal from "@/components/ui/NotificationModal"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import LogoutButton from "@/components/ui/LogoutButton"
-import { jwtDecode } from "jwt-decode"
 import { useEffect, useMemo, useState } from "react"
 import { ApiMakanan, Makanan } from "../types/food"
 import CreateFood from "./CreateFood"
 import EditFood from "./EditFood"
 import FoodDetailView from "./DetailFood"
-
-interface JwtPayload {
-    username: string;
-    role: string;
-}
 
 export default function ManageFood() {
     const [activeTab, setActiveTab] = useState<'utama' | 'pendamping'>('utama');
@@ -30,26 +23,6 @@ export default function ManageFood() {
         message: '',
         type: 'success' as 'success' | 'error',
     });
-    const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
-
-    useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-            try {
-                const decodedToken = jwtDecode<JwtPayload>(token);
-                setLoggedInUser(decodedToken.username);
-            } catch (error) {
-                console.error("Token tidak valid:", error);
-                setModalContent({
-                    title: "Terjadi Kesalahan",
-                    message: error instanceof Error ? error.message : String(error),
-                    type: 'error'
-                });
-                setIsModalOpen(true);
-            }
-        }
-    }, []);
-
 
     useEffect(() => {
         async function fetchFood() {
@@ -73,6 +46,10 @@ export default function ManageFood() {
                         nama: k.namaMakanan,
                         jenis: k.jenis,
                     })) : [],
+                    tanggalTersedia: apiItem.tanggalTersedia.map(t => ({
+                        id: t.id,
+                        tanggal: t.tanggal,
+                    })),
                 }))
 
                 setFoods(cleanedFoods);
@@ -139,6 +116,10 @@ export default function ManageFood() {
                     nama: k.namaMakanan,
                     jenis: k.jenis,
                 })),
+                tanggalTersedia: created.tanggalTersedia.map(t => ({
+                    id: t.id,
+                    tanggal: t.tanggal,
+                })),
             };
 
             setFoods(prev => [...prev, newFood]);
@@ -196,6 +177,10 @@ export default function ManageFood() {
                     id: k.idMakanan,
                     nama: k.namaMakanan,
                     jenis: k.jenis,
+                })),
+                tanggalTersedia: saved.tanggalTersedia.map(t => ({
+                    id: t.id,
+                    tanggal: t.tanggal,
                 })),
             };
             setFoods(foods.map(f => f.id === updated.id ? updated : f));
@@ -276,15 +261,6 @@ export default function ManageFood() {
     return (
         <div className="min-h-screen">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <header className="bg-gray-200 p-4 rounded-lg shadow-sm border border-gray-200 mb-8">
-                    <div className="flex justify-between items-center">
-                        <p className="text-gray-800">Selamat Datang <strong>{loggedInUser || 'Pengguna'}</strong>! </p>
-                        <div className="w-32">
-                            <LogoutButton />
-                        </div>
-                    </div>
-                </header>
-
                 <div className="lg:grid lg:grid-cols-12 lg:gap-8">
                     <div className="lg:col-span-4 xl:col-span-3">
                         <div className="bg-gray-200 rounded-lg shadow-sm border border-gray-200">

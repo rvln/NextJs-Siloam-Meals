@@ -174,7 +174,7 @@ export default function CreateFood({ onCreate, onCancel, sideDishOptions }: Crea
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+                <div className="flex justify-end gap-3 mt-8 pt-6 border-t text-black">
                     <Button variant="outline" onClick={onCancel}>Batal</Button>
                     <Button onClick={handleCreate}>Simpan Makanan</Button>
                 </div>

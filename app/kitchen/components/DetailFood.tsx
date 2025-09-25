@@ -2,7 +2,7 @@
 
 import { Makanan } from "../types/food"
 import { Button } from "@/components/ui/button";
-import { FilePenLine } from "lucide-react";
+import { Calendar, FilePenLine } from "lucide-react";
 import Image from "next/image";
 
 interface FoodDetailViewProps {
@@ -65,6 +65,31 @@ export default function FoodDetailView({ food, onEdit }: FoodDetailViewProps) {
                             <dt className="text-sm font-medium text-gray-500">Dibuat Oleh</dt>
                             <dd className="mt-1 text-gray-900">{food.createdBy}</dd>
                         </dl>
+
+                        {food.tanggalTersedia && food.tanggalTersedia.length > 0 && (
+                            <div className="border-t pt-6 mt-6">
+                                <h4 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    Tanggal Tersedia
+                                </h4>
+                                <ul className="flex flex-wrap gap-2">
+                                    {food.tanggalTersedia.map((t, idx) => (
+                                        <li
+                                            key={idx}
+                                            className="px-3 py-1 text-sm bg-gray-100 rounded-md text-gray-700"
+                                        >
+                                            {new Date(t.tanggal).toLocaleDateString("id-ID", {
+                                                weekday: "long",
+                                                day: "numeric",
+                                                month: "long",
+                                                year: "numeric",
+                                            })}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         {food.jenis === 'Lauk' && food.utamaDari.length > 0 && (
                             <div className="border-t pt-6">
                                 <h4 className="text-base font-semibold text-gray-800 mb-3">
