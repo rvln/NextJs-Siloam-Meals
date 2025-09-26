@@ -29,8 +29,21 @@ export default function EditPatient({ patient, onSave, onCancel }: EditPatientPr
     const [editForm, setEditForm] = useState<Patient>({ ...patient });
     const [makananOptions, setMakananOptions] = useState<MakananOption[]>([]);
 
+    // Helper to format date for input type="date"
+    const formatDateForInput = (dateString: string | null | undefined) => {
+        if (!dateString) return '';
+        try {
+            return new Date(dateString).toISOString().split('T')[0];
+        } catch (error) {
+            return '';
+        }
+    };
+
     useEffect(() => {
-        setEditForm({ ...patient });
+        setEditForm({ 
+            ...patient,
+            tanggalLahir: formatDateForInput(patient.tanggalLahir)
+         });
     }, [patient]);
 
     useEffect(() => {
@@ -120,11 +133,29 @@ export default function EditPatient({ patient, onSave, onCancel }: EditPatientPr
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Tempat Tidur</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">No. KTP</label>
                         <input
                             type="text"
-                            value={editForm.tempatTidur}
-                            onChange={(e) => handleInputChange("tempatTidur", e.target.value)}
+                            value={editForm.noKtp || ''}
+                            onChange={(e) => handleInputChange("noKtp", e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Tanggal Lahir</label>
+                        <input
+                            type="date"
+                            value={editForm.tanggalLahir || ''}
+                            onChange={(e) => handleInputChange("tanggalLahir", e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Ruangan Inap</label>
+                        <input
+                            type="text"
+                            value={editForm.ruanganInap}
+                            onChange={(e) => handleInputChange("ruanganInap", e.target.value)}
                             className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                         />
                     </div>
