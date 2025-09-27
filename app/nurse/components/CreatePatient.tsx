@@ -9,20 +9,29 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ChevronsUpDown, Check } from "lucide-react";
+import { ChevronsUpDown, Check, PlusCircle, Trash2 } from "lucide-react";
 import {
   PantanganForm,
   MakananOption,
   CreatePatientFormData,
 } from "../types/patient";
 import NotificationModal from "@/components/ui/NotificationModal";
+import { Jenis } from "@/app/kitchen/types/food";
 
 interface CreatePatientProps {
   onCreate: (patient: CreatePatientFormData) => void;
@@ -36,10 +45,10 @@ export default function CreatePatient({
   const [createForm, setCreateForm] = useState<CreatePatientFormData>({
     namaPasien: "",
     mr: "",
-    ruanganInap: "", // Diubah dari tempatTidur
+    ruanganInap: "",
     diagnosa: "",
-    noKtp: "", // Ditambahkan
-    tanggalLahir: "", // Ditambahkan
+    noKtp: "",
+    tanggalLahir: "",
     Pantangan: [],
   });
 
@@ -51,11 +60,18 @@ export default function CreatePatient({
     type: "success" as "success" | "error",
   });
 
+  // State for adding new food
+  const [isAddFoodModalOpen, setAddFoodModalOpen] = useState(false);
+  const [newFoodName, setNewFoodName] = useState("");
+  const [newFoodType, setNewFoodType] = useState<Jenis>(Jenis.Lauk);
+  const [currentRestrictionIndex, setCurrentRestrictionIndex] = useState<
+    number | null
+  >(null);
+
   useEffect(() => {
     const fetchMakanan = async () => {
       try {
-        const token = localStorage.getItem("accessToken"); // Pastikan token diambil dengan benar
-
+        const token = localStorage.getItem("accessToken"); // Corrected token key
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/makanan`,
           {
@@ -66,7 +82,12 @@ export default function CreatePatient({
         );
         if (!response.ok) throw new Error("Gagal mengambil daftar makanan");
         const data = await response.json();
-        setMakananOptions(data);
+        setMakananOptions(
+          data.map((m: any) => ({
+            idMakanan: m.idMakanan,
+            namaMakanan: m.namaMakanan,
+          }))
+        );
       } catch (err) {
         console.error(err);
         if (err instanceof Error) {
@@ -111,6 +132,61 @@ export default function CreatePatient({
       i === index ? { ...restriction, [field]: value } : restriction
     );
     setCreateForm({ ...createForm, Pantangan: updatedRestrictions });
+  };
+
+  const handleCreateNewFood = async () => {
+    if (!newFoodName || !newFoodType) {
+      alert("Nama dan jenis makanan harus diisi.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/makanan/simple`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            namaMakanan: newFoodName,
+            jenis: newFoodType,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Gagal menambahkan makanan baru");
+      }
+
+      const newFood = await response.json();
+
+      // Update the options list
+      setMakananOptions((prev) => [
+        ...prev,
+        { idMakanan: newFood.idMakanan, namaMakanan: newFood.namaMakanan },
+      ]);
+
+      // Auto-select the new food for the current restriction
+      if (currentRestrictionIndex !== null) {
+        handleRestrictionChange(
+          currentRestrictionIndex,
+          "makananId",
+          newFood.idMakanan
+        );
+      }
+
+      // Close modal and reset form
+      setAddFoodModalOpen(false);
+      setNewFoodName("");
+      setNewFoodType(Jenis.Lauk);
+      setCurrentRestrictionIndex(null);
+    } catch (error) {
+      console.error(error);
+      alert((error as Error).message);
+    }
   };
 
   const handleCreate = () => {
@@ -171,7 +247,7 @@ export default function CreatePatient({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Medical Record
+              Medical Record (MR)
             </label>
             <input
               type="text"
@@ -341,12 +417,26 @@ export default function CreatePatient({
                             ))}
                           </CommandGroup>
                         </CommandList>
+                        <CommandSeparator />
+                        <CommandList>
+                          <CommandGroup>
+                            <CommandItem
+                              onSelect={() => {
+                                setCurrentRestrictionIndex(index);
+                                setAddFoodModalOpen(true);
+                              }}
+                            >
+                              <PlusCircle className="mr-2 h-4 w-4" />
+                              Tambah Makanan Baru
+                            </CommandItem>
+                          </CommandGroup>
+                        </CommandList>
                       </Command>
                     </PopoverContent>
                   </Popover>
                 </div>
 
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 pt-6">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -354,25 +444,7 @@ export default function CreatePatient({
                     className="text-red-500 hover:bg-red-100 hover:text-red-700"
                     aria-label="Hapus pantangan"
                   >
-                    {/* Ikon tempat sampah dari lucide-react */}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-5 w-5"
-                    >
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      <line x1="10" x2="10" y1="11" y2="17" />
-                      <line x1="14" x2="14" y1="11" y2="17" />
-                    </svg>
+                    <Trash2 className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
@@ -395,6 +467,55 @@ export default function CreatePatient({
           </button>
         </div>
       </div>
+
+      {/* Modal for adding new food */}
+      <Dialog open={isAddFoodModalOpen} onOpenChange={setAddFoodModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tambah Makanan Baru</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4 text-black">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nama Makanan
+              </label>
+              <input
+                type="text"
+                value={newFoodName}
+                onChange={(e) => setNewFoodName(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md"
+                placeholder="Contoh: Roti Gandum"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Jenis Makanan
+              </label>
+              <select
+                value={newFoodType}
+                onChange={(e) => setNewFoodType(e.target.value as Jenis)}
+                className="w-full p-2 border border-gray-300 rounded-md bg-white"
+              >
+                {Object.values(Jenis).map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddFoodModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button onClick={handleCreateNewFood}>Simpan Makanan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <NotificationModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

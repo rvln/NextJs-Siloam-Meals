@@ -14,10 +14,10 @@ export interface ApiPatient {
   uuid: string;
   mr: string;
   namaPasien: string;
-  ruanganInap: string; // Diubah dari tempatTidur
+  ruanganInap: string;
   diagnosa: string;
-  noKtp?: string; // Ditambahkan
-  tanggalLahir?: string; // Ditambahkan
+  noKtp: string;
+  tanggalLahir: string;
   status: string;
   validate: boolean;
   link: string;
@@ -52,17 +52,17 @@ export interface Patient {
 export interface CreatePatientFormData {
   namaPasien: string;
   mr: string;
-  ruanganInap: string; // Diubah dari tempatTidur
+  ruanganInap: string;
   diagnosa: string;
-  noKtp?: string; // Ditambahkan
-  tanggalLahir?: string; // Ditambahkan
+  noKtp?: string;
+  tanggalLahir?: string;
   Pantangan: PantanganForm[];
 }
 
 export interface PatientPayload {
   namaPasien: string;
   mr: string;
-  ruanganInap: string; // Diubah dari tempatTidur
+  ruanganInap: string;
   diagnosa: string;
   noKtp?: string;
   tanggalLahir?: string;

@@ -88,15 +88,11 @@ export default function PatientDetailView({
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A";
-    try {
-      return new Intl.DateTimeFormat("id-ID", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }).format(new Date(dateString));
-    } catch (error) {
-      return "Tanggal tidak valid";
-    }
+    return new Date(dateString).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   };
 
   return (
@@ -169,7 +165,7 @@ export default function PatientDetailView({
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
                 {patient.namaPasien}
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-black">
                 <div>
                   <p className="text-sm font-medium text-gray-500">
                     Medical Record
