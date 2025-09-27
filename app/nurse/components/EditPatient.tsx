@@ -16,13 +16,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { ChevronsUpDown, Check, Trash2, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Patient, PantanganForm, MakananOption } from "../types/patient";
@@ -119,58 +112,6 @@ export default function EditPatient({
       ...editForm,
       Pantangan: editForm.Pantangan.filter((_, i) => i !== index),
     });
-  };
-
-  const handleCreateNewFood = async () => {
-    if (!newFoodName || !newFoodType) {
-      alert("Nama dan jenis makanan harus diisi.");
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/makanan/simple`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            namaMakanan: newFoodName,
-            jenis: newFoodType,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Gagal menambahkan makanan baru");
-      }
-
-      const newFood = await response.json();
-
-      setMakananOptions((prev) => [
-        ...prev,
-        { idMakanan: newFood.idMakanan, namaMakanan: newFood.namaMakanan },
-      ]);
-
-      if (currentRestrictionIndex !== null) {
-        handleRestrictionChange(
-          currentRestrictionIndex,
-          "makananId",
-          newFood.idMakanan
-        );
-      }
-
-      setAddFoodModalOpen(false);
-      setNewFoodName("");
-      setNewFoodType(Jenis.Lauk);
-      setCurrentRestrictionIndex(null);
-    } catch (error) {
-      console.error(error);
-      alert((error as Error).message);
-    }
   };
 
   const handleSave = () => {
@@ -382,20 +323,6 @@ export default function EditPatient({
                             ))}
                           </CommandGroup>
                         </CommandList>
-                        <CommandSeparator />
-                        <CommandList>
-                          <CommandGroup>
-                            <CommandItem
-                              onSelect={() => {
-                                setCurrentRestrictionIndex(index);
-                                setAddFoodModalOpen(true);
-                              }}
-                            >
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              Tambah Makanan Baru
-                            </CommandItem>
-                          </CommandGroup>
-                        </CommandList>
                       </Command>
                     </PopoverContent>
                   </Popover>
@@ -430,54 +357,6 @@ export default function EditPatient({
           </button>
         </div>
       </div>
-
-      {/* Modal for adding new food */}
-      <Dialog open={isAddFoodModalOpen} onOpenChange={setAddFoodModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Tambah Makanan Baru</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4 text-black">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nama Makanan
-              </label>
-              <input
-                type="text"
-                value={newFoodName}
-                onChange={(e) => setNewFoodName(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
-                placeholder="Contoh: Roti Gandum"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Jenis Makanan
-              </label>
-              <select
-                value={newFoodType}
-                onChange={(e) => setNewFoodType(e.target.value as Jenis)}
-                className="w-full p-2 border border-gray-300 rounded-md bg-white"
-              >
-                {Object.values(Jenis).map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setAddFoodModalOpen(false)}
-            >
-              Batal
-            </Button>
-            <Button onClick={handleCreateNewFood}>Simpan Makanan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
