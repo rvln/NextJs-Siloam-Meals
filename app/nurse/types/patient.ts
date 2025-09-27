@@ -46,6 +46,7 @@ export interface Patient {
   diagnosa: string;
   noKtp?: string | null; // Ditambahkan
   tanggalLahir?: string | null; // Ditambahkan
+  validate: boolean;
   Pantangan: PantanganForm[];
 }
 

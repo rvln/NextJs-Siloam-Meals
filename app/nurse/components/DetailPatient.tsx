@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { QrCode, FilePenLine } from "lucide-react";
+import { QrCode, FilePenLine, ShieldCheck, ShieldAlert } from "lucide-react";
 import Image from "next/image";
 import NotificationModal from "@/components/ui/NotificationModal";
 
@@ -162,9 +162,22 @@ export default function PatientDetailView({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                {patient.namaPasien}
-              </h3>
+              <div className="flex items-center gap-4 mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {patient.namaPasien}
+                </h3>
+                {patient.validate ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Tervalidasi oleh Dietisien
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Belum Tervalidasi
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-black">
                 <div>
                   <p className="text-sm font-medium text-gray-500">

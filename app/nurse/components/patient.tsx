@@ -83,10 +83,11 @@ export default function ManagePatient() {
           uuid: p.uuid,
           namaPasien: p.namaPasien,
           mr: p.mr,
-          ruanganInap: p.ruanganInap, // Diubah dari tempatTidur
+          ruanganInap: p.ruanganInap,
           diagnosa: p.diagnosa,
-          noKtp: p.noKtp, // Ditambahkan
-          tanggalLahir: p.tanggalLahir, // Ditambahkan
+          noKtp: p.noKtp,
+          tanggalLahir: p.tanggalLahir,
+          validate: p.validate, // Memasukkan data validasi
           Pantangan: p.Pantangan
             ? p.Pantangan.map((pt) => ({
                 namaPantangan: pt.namaPantangan,
@@ -124,7 +125,7 @@ export default function ManagePatient() {
       patient.namaPasien.toLowerCase().includes(searchTerm.toLowerCase()) ||
       patient.mr.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (patient.noKtp &&
-        patient.noKtp.toLowerCase().includes(searchTerm.toLowerCase())) || // Ditambahkan pencarian No KTP
+        patient.noKtp.toLowerCase().includes(searchTerm.toLowerCase())) ||
       patient.ruanganInap.toLowerCase().includes(searchTerm.toLowerCase()) ||
       patient.diagnosa.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -151,7 +152,7 @@ export default function ManagePatient() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.message || "Gagal membuat data pasien");
+        throw new Error(errorData.message || "Gagal mengambil data pasien");
       }
 
       const created: ApiPatient = await res.json();
@@ -165,6 +166,7 @@ export default function ManagePatient() {
         diagnosa: created.diagnosa,
         noKtp: created.noKtp,
         tanggalLahir: created.tanggalLahir,
+        validate: created.validate,
         Pantangan: created.Pantangan.map((pt) => ({
           namaPantangan: pt.namaPantangan,
           makananId: pt.makanan ? pt.makanan.idMakanan : null,
@@ -235,6 +237,7 @@ export default function ManagePatient() {
         diagnosa: saved.diagnosa,
         noKtp: saved.noKtp,
         tanggalLahir: saved.tanggalLahir,
+        validate: saved.validate,
         Pantangan: saved.Pantangan.map((pt) => ({
           namaPantangan: pt.namaPantangan,
           makananId: pt.makanan ? pt.makanan.idMakanan : null,
@@ -247,7 +250,7 @@ export default function ManagePatient() {
       setIsEditing(false);
       setModalContent({
         title: "Berhasil!",
-        message: "Data pasien berhasil diperbarui.",
+        message: "Data pasien telah berhasil diperbarui.",
         type: "success",
       });
       setIsModalOpen(true);
@@ -429,9 +432,15 @@ export default function ManagePatient() {
                       {patient.diagnosa}
                     </p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-orange-600 font-medium">
-                        {patient.Pantangan.length} Pantangan
-                      </span>
+                      {patient.validate ? (
+                        <span className="text-xs text-green-600 font-medium">
+                          Tervalidasi
+                        </span>
+                      ) : (
+                        <span className="text-xs text-yellow-600 font-medium">
+                          Belum Tervalidasi
+                        </span>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
