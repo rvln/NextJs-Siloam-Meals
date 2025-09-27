@@ -1,5 +1,12 @@
 import { Feedback } from "./feedback";
 
+export interface PengecualianMakanan {
+  makananId: number;
+  makanan: {
+    namaMakanan: string;
+  };
+}
+
 export interface ApiPantangan {
   idPantangan: number;
   namaPantangan: string;
@@ -22,6 +29,7 @@ export interface ApiPatient {
   validate: boolean;
   Pantangan: ApiPantangan[];
   Feedback: Feedback[]; // Menambahkan feedback
+  PengecualianMakanan: PengecualianMakanan[];
 }
 
 export interface Patient {
@@ -37,4 +45,5 @@ export interface Patient {
     namaMakanan?: string;
   }[];
   Feedback: Feedback[]; // Menambahkan feedback
+  PengecualianMakanan: PengecualianMakanan[];
 }

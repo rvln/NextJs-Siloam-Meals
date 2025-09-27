@@ -11,7 +11,39 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
+  XCircle,
 } from "lucide-react";
+import { MakananOption } from "@/app/kitchen/types/food";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Filter } from "lucide-react";
+
+// Komponen Badge untuk Makanan yang Dikecualikan
+const ExclusionBadge = ({
+  text,
+  onRemove,
+}: {
+  text: string;
+  onRemove: () => void;
+}) => (
+  <div className="flex items-center gap-1 bg-red-100 text-red-800 text-xs font-medium px-2.5 py-1 rounded-full">
+    <span>{text}</span>
+    <button onClick={onRemove} className="hover:bg-red-200 rounded-full">
+      <XCircle className="h-3.5 w-3.5" />
+    </button>
+  </div>
+);
 
 export default function Validation() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -25,13 +57,42 @@ export default function Validation() {
     message: "",
     type: "success" as "success" | "error",
   });
+  // State BARU untuk fitur filtering
+  const [allFoodOptions, setAllFoodOptions] = useState<MakananOption[]>([]);
+  const [excludedFoodIds, setExcludedFoodIds] = useState<Set<number>>(
+    new Set()
+  );
+  const [openExclusionPopover, setOpenExclusionPopover] = useState(false);
+
+  // Fungsi untuk mengambil semua data makanan yang tersedia
+  useEffect(() => {
+    const fetchAllFoods = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/makanan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Gagal mengambil daftar makanan");
+        const data: MakananOption[] = await res.json();
+        setAllFoodOptions(data);
+      } catch (error) {
+        handleError(error);
+      }
+    };
+    fetchAllFoods();
+  }, []);
 
   useEffect(() => {
     fetchPatients();
   }, []);
 
+  // Perbarui daftar pengecualian saat pasien dipilih
   useEffect(() => {
     if (selectedPatient) {
+      const initialExclusions = new Set(
+        selectedPatient.PengecualianMakanan.map((p) => p.makananId)
+      );
+      setExcludedFoodIds(initialExclusions);
       fetchFeedback(selectedPatient.id);
     }
   }, [selectedPatient]);
@@ -42,12 +103,7 @@ export default function Validation() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pasien`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Gagal mengambil data pasien");
-      }
-
+      if (!res.ok) throw new Error("Gagal mengambil data pasien");
       const data: ApiPatient[] = await res.json();
       const mappedPatients: Patient[] = data.map((p) => ({
         id: p.idPasien,
@@ -59,9 +115,10 @@ export default function Validation() {
         validate: p.validate,
         Pantangan: p.Pantangan.map((pt) => ({
           namaPantangan: pt.namaPantangan,
-          namaMakanan: pt.makanan.namaMakanan,
+          namaMakanan: pt.makanan?.namaMakanan,
         })),
-        Feedback: p.Feedback || [],
+        PengecualianMakanan: p.PengecualianMakanan,
+        Feedback: p.Feedback,
       }));
       setPatients(mappedPatients);
     } catch (error) {
@@ -142,6 +199,53 @@ export default function Validation() {
     } catch (error) {
       handleError(error);
     }
+  };
+
+  // Fungsi BARU untuk menyimpan daftar pengecualian
+  const handleSaveExclusions = async () => {
+    if (!selectedPatient) return;
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/pasien/${selectedPatient.id}/pengecualian`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            makananIds: Array.from(excludedFoodIds),
+          }),
+        }
+      );
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Gagal menyimpan pengecualian");
+      }
+      setModalContent({
+        title: "Berhasil",
+        message: "Daftar pengecualian makanan berhasil diperbarui.",
+        type: "success",
+      });
+      setIsModalOpen(true);
+      fetchPatients(); // Refresh data pasien untuk mendapatkan data terbaru
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  // Fungsi untuk menambah/menghapus item dari daftar pengecualian
+  const toggleExclusion = (makananId: number) => {
+    setExcludedFoodIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(makananId)) {
+        newSet.delete(makananId);
+      } else {
+        newSet.add(makananId);
+      }
+      return newSet;
+    });
   };
 
   const handleError = (error: unknown) => {
@@ -314,6 +418,105 @@ export default function Validation() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Bagian BARU: Filtering Makanan oleh Dietisien */}
+      <div className="p-6 border-t bg-gray-50 rounded-lg shadow-sm">
+        {/* Judul */}
+        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2 text-lg">
+          <Filter className="h-5 w-5 text-blue-600" />
+          Pengecualian Makanan Spesifik
+        </h4>
+        <p className="text-sm text-gray-500 mb-6">
+          Pilih makanan yang ingin Anda kecualikan dari menu pesanan pasien ini.
+        </p>
+
+        {/* Popover Input */}
+        <Popover
+          open={openExclusionPopover}
+          onOpenChange={setOpenExclusionPopover}
+        >
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left font-normal mb-4 border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            >
+              {excludedFoodIds.size > 0 ? (
+                <span className="text-blue-700 font-medium">
+                  {excludedFoodIds.size} makanan dikecualikan
+                </span>
+              ) : (
+                <span className="text-gray-500">
+                  Pilih makanan untuk dikecualikan
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+
+          <PopoverContent
+            className="w-[--radix-popover-trigger-width] p-0 shadow-lg rounded-md border border-gray-200 bg-white"
+            align="start"
+          >
+            <Command>
+              <CommandInput
+                placeholder="Cari makanan..."
+                className="focus:ring-0 focus:outline-none"
+              />
+              <CommandList>
+                <CommandEmpty className="p-4 text-sm text-gray-500">
+                  Makanan tidak ditemukan.
+                </CommandEmpty>
+                <CommandGroup>
+                  {allFoodOptions.map((option) => (
+                    <CommandItem
+                      key={option.idMakanan}
+                      onSelect={() => toggleExclusion(option.idMakanan)}
+                      className="cursor-pointer hover:bg-blue-50 transition-colors"
+                    >
+                      <div
+                        className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary ${
+                          excludedFoodIds.has(option.idMakanan)
+                            ? "bg-primary text-primary-foreground"
+                            : "opacity-50 [&_svg]:invisible"
+                        }`}
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </div>
+                      <span className="text-gray-800">
+                        {option.namaMakanan}{" "}
+                        <span className="text-xs text-gray-500">
+                          ({option.jenis})
+                        </span>
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+
+        {/* Badge makanan yang dipilih */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {Array.from(excludedFoodIds).map((id) => {
+            const food = allFoodOptions.find((f) => f.idMakanan === id);
+            return food ? (
+              <ExclusionBadge
+                key={id}
+                text={food.namaMakanan}
+                onRemove={() => toggleExclusion(id)}
+              />
+            ) : null;
+          })}
+        </div>
+
+        {/* Tombol Simpan */}
+        <Button
+          onClick={handleSaveExclusions}
+          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-colors"
+        >
+          Simpan Perubahan
+        </Button>
       </div>
 
       <NotificationModal
