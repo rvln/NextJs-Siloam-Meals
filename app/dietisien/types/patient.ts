@@ -1,13 +1,12 @@
-// Mendefinisikan tipe data yang diterima dari API backend
-export interface ApiMakananInfo {
-  idMakanan: number;
-  namaMakanan: string;
-}
+import { Feedback } from "./feedback";
 
 export interface ApiPantangan {
   idPantangan: number;
   namaPantangan: string;
-  makanan: ApiMakananInfo | null;
+  makanan: {
+    idMakanan: number;
+    namaMakanan: string;
+  };
 }
 
 export interface ApiPatient {
@@ -15,34 +14,27 @@ export interface ApiPatient {
   uuid: string;
   mr: string;
   namaPasien: string;
-  tempatTidur: string;
+  ruanganInap: string;
   diagnosa: string;
+  noKtp: string | null;
+  tanggalLahir: string | null;
   status: string;
   validate: boolean;
-  link: string;
-  created_at: string;
-  updated_at: string;
-  createdBy: number;
-  validatedBy: number | null;
-  user: {
-    namaUser: string;
-  };
   Pantangan: ApiPantangan[];
-}
-
-// Mendefinisikan tipe data yang digunakan di komponen frontend
-export interface Pantangan {
-  namaPantangan: string;
-  makananId: number | null;
-  namaMakanan?: string;
+  Feedback: Feedback[]; // Menambahkan feedback
 }
 
 export interface Patient {
   id: number;
+  uuid: string;
   namaPasien: string;
   mr: string;
-  tempatTidur: string;
+  ruanganInap: string;
   diagnosa: string;
   validate: boolean;
-  Pantangan: Pantangan[];
+  Pantangan: {
+    namaPantangan: string;
+    namaMakanan?: string;
+  }[];
+  Feedback: Feedback[]; // Menambahkan feedback
 }

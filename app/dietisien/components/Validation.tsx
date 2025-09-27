@@ -1,23 +1,23 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { jwtDecode } from "jwt-decode";
+import { useEffect, useState } from "react";
 import { Patient, ApiPatient } from "../types/patient";
-import LogoutButton from "@/components/ui/LogoutButton";
+import { Feedback } from "../types/feedback";
 import { Button } from "@/components/ui/button";
 import NotificationModal from "@/components/ui/NotificationModal";
-import { CheckCircle2, ShieldAlert } from "lucide-react";
-
-interface JwtPayload {
-  username: string;
-  role: string;
-}
+import {
+  CheckCircle,
+  MessageSquare,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 
 export default function Validation() {
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
+  const [newFeedback, setNewFeedback] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState({
@@ -27,71 +27,68 @@ export default function Validation() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      try {
-        const decodedToken = jwtDecode<JwtPayload>(token);
-        setLoggedInUser(decodedToken.username);
-      } catch (error) {
-        console.error("Token tidak valid:", error);
-        setError("Sesi Anda tidak valid, silakan login kembali.");
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const fetchPatients = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem("accessToken");
-        if (!token)
-          throw new Error("Token tidak ditemukan. Harap login kembali.");
-
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pasien`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Gagal mengambil data pasien.");
-
-        const dataFromApi: ApiPatient[] = await res.json();
-
-        const mappedPatients: Patient[] = dataFromApi.map((p) => ({
-          id: p.idPasien,
-          namaPasien: p.namaPasien,
-          mr: p.mr,
-          tempatTidur: p.tempatTidur,
-          diagnosa: p.diagnosa,
-          validate: p.validate,
-          Pantangan: p.Pantangan
-            ? p.Pantangan.map((pt) => ({
-                namaPantangan: pt.namaPantangan,
-                makananId: pt.makanan?.idMakanan || null,
-                namaMakanan: pt.makanan?.namaMakanan || "N/A",
-              }))
-            : [],
-        }));
-
-        setPatients(mappedPatients);
-      } catch (err: unknown) {
-        if (err instanceof Error) setError(err.message);
-        else setError(String(err));
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchPatients();
   }, []);
 
-  const patientsToValidate = useMemo(() => {
-    return patients.filter((p) => !p.validate);
-  }, [patients]);
+  useEffect(() => {
+    if (selectedPatient) {
+      fetchFeedback(selectedPatient.id);
+    }
+  }, [selectedPatient]);
+
+  const fetchPatients = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pasien`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Gagal mengambil data pasien");
+      }
+
+      const data: ApiPatient[] = await res.json();
+      const mappedPatients: Patient[] = data.map((p) => ({
+        id: p.idPasien,
+        uuid: p.uuid,
+        namaPasien: p.namaPasien,
+        mr: p.mr,
+        ruanganInap: p.ruanganInap,
+        diagnosa: p.diagnosa,
+        validate: p.validate,
+        Pantangan: p.Pantangan.map((pt) => ({
+          namaPantangan: pt.namaPantangan,
+          namaMakanan: pt.makanan.namaMakanan,
+        })),
+        Feedback: p.Feedback || [],
+      }));
+      setPatients(mappedPatients);
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  const fetchFeedback = async (pasienId: number) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/feedback/pasien/${pasienId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error("Gagal mengambil data feedback");
+      const data: Feedback[] = await res.json();
+      setFeedbackList(data);
+    } catch (error) {
+      handleError(error);
+    }
+  };
 
   const handleValidate = async (patientId: number) => {
     try {
       const token = localStorage.getItem("accessToken");
-      if (!token)
-        throw new Error("Token tidak ditemukan. Harap login kembali.");
-
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/pasien/validate/${patientId}`,
         {
@@ -102,129 +99,222 @@ export default function Validation() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.message || "Gagal memvalidasi pasien.");
+        throw new Error(errorData.message || "Gagal memvalidasi pasien");
       }
 
-      setPatients((prevPatients) =>
-        prevPatients.map((p) =>
-          p.id === patientId ? { ...p, validate: true } : p
-        )
-      );
-
       setModalContent({
-        title: "Berhasil!",
-        message: "Data pantangan pasien telah berhasil divalidasi.",
+        title: "Berhasil",
+        message: "Pasien berhasil divalidasi.",
         type: "success",
       });
       setIsModalOpen(true);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan yang tidak diketahui";
-      setModalContent({
-        title: "Terjadi Kesalahan",
-        message,
-        type: "error",
-      });
-      setIsModalOpen(true);
+      fetchPatients(); // Refresh data pasien
+    } catch (error) {
+      handleError(error);
     }
   };
 
+  const handleSendFeedback = async () => {
+    if (!selectedPatient || !newFeedback.trim()) return;
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pasienId: selectedPatient.id,
+          pesan: newFeedback,
+        }),
+      });
+      if (!res.ok) throw new Error("Gagal mengirim feedback");
+
+      setNewFeedback("");
+      fetchFeedback(selectedPatient.id); // Refresh feedback list
+      setModalContent({
+        title: "Berhasil",
+        message: "Feedback berhasil dikirim ke perawat.",
+        type: "success",
+      });
+      setIsModalOpen(true);
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  const handleError = (error: unknown) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan yang tidak diketahui";
+    setModalContent({ title: "Terjadi Kesalahan", message, type: "error" });
+    setIsModalOpen(true);
+  };
+
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
   return (
-    <div className="p-4 sm:p-6 md:p-8 min-h-screen">
-      <header className="bg-gray-800/50 p-4 rounded-lg shadow-md border border-gray-700 mb-8 backdrop-blur-sm">
-        <div className="flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-white">
-            Selamat Datang, <strong>{loggedInUser || "Ahli Gizi"}</strong>!
-          </h1>
-          <div className="w-32">
-            <LogoutButton />
-          </div>
-        </div>
-      </header>
-
-      <h2 className="text-2xl font-bold text-white mb-6">
-        Pasien Perlu Validasi Pantangan
-      </h2>
-
-      {isLoading && (
-        <p className="text-center p-8 text-gray-300">Memuat data pasien...</p>
-      )}
-      {error && <p className="text-center p-8 text-red-400">Error: {error}</p>}
-
-      {!isLoading && !error && (
-        <div className="space-y-6">
-          {patientsToValidate.length > 0 ? (
-            patientsToValidate.map((patient) => (
-              <div
-                key={patient.id}
-                className="bg-gray-800/70 rounded-lg shadow-lg border border-gray-700 overflow-hidden backdrop-blur-sm"
-              >
-                <div className="p-5 border-b border-gray-600 grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-                  <div className="md:col-span-2">
-                    <h3 className="font-bold text-lg text-white">
-                      {patient.namaPasien}
-                    </h3>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400 mt-1">
-                      <span>
-                        MR: <span className="font-mono">{patient.mr}</span>
-                      </span>
-                      <span>Kamar: {patient.tempatTidur}</span>
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="lg:grid lg:grid-cols-12 lg:gap-8">
+          {/* Kolom Daftar Pasien */}
+          <div className="lg:col-span-4 xl:col-span-3">
+            <div className="bg-gray-200 rounded-lg shadow-sm border border-gray-200">
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Daftar Pasien
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Pilih pasien untuk divalidasi
+                </p>
+              </div>
+              <div className="max-h-[600px] overflow-y-auto">
+                {patients.map((patient) => (
+                  <div
+                    key={patient.id}
+                    className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      selectedPatient?.id === patient.id
+                        ? "bg-blue-50 border-l-4 border-l-blue-500"
+                        : ""
+                    }`}
+                    onClick={() => setSelectedPatient(patient)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium text-gray-900 text-sm">
+                        {patient.namaPasien}
+                      </h3>
+                      {patient.validate ? (
+                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                          Tervalidasi
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                          Pending
+                        </span>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-300 mt-2">
-                      <strong>Diagnosa:</strong> {patient.diagnosa}
+                    <p className="text-xs text-gray-600">MR: {patient.mr}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Kolom Detail dan Validasi */}
+          <div className="mt-8 lg:mt-0 lg:col-span-8 xl:col-span-9">
+            {selectedPatient ? (
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900">
+                      {selectedPatient.namaPasien}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      MR: {selectedPatient.mr} | Ruangan:{" "}
+                      {selectedPatient.ruanganInap}
                     </p>
                   </div>
-                  <div className="md:text-right">
-                    <Button
-                      onClick={() => handleValidate(patient.id)}
-                      className="w-full md:w-auto bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Validasi Pasien
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => handleValidate(selectedPatient.id)}
+                    disabled={selectedPatient.validate}
+                  >
+                    {selectedPatient.validate ? (
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                    ) : (
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                    )}
+                    {selectedPatient.validate
+                      ? "Sudah Tervalidasi"
+                      : "Validasi Pasien"}
+                  </Button>
                 </div>
-                <div className="p-5 bg-gray-900/50">
-                  <h4 className="font-semibold text-gray-200 mb-3 flex items-center gap-2">
-                    <ShieldAlert className="h-5 w-5 text-orange-400" />
-                    Pantangan Makanan
+
+                {/* Detail Pantangan */}
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-gray-800 mb-2">
+                    Data Pantangan Makanan:
                   </h4>
-                  {patient.Pantangan && patient.Pantangan.length > 0 ? (
-                    <ul className="space-y-2">
-                      {patient.Pantangan.map((restriction, index) => (
-                        <li
-                          key={index}
-                          className="text-sm text-gray-300 bg-gray-700/50 p-2 rounded-md"
-                        >
-                          <strong>{restriction.namaPantangan}</strong>
-                          {restriction.namaMakanan !== "N/A" && (
-                            <span className="text-gray-400 text-xs ml-2">
-                              (Terkait: {restriction.namaMakanan})
-                            </span>
-                          )}
+                  {selectedPatient.Pantangan.length > 0 ? (
+                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
+                      {selectedPatient.Pantangan.map((p, index) => (
+                        <li key={index}>
+                          {p.namaPantangan} ({p.namaMakanan})
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-gray-500 text-sm italic">
-                      Tidak ada pantangan makanan yang tercatat.
+                    <p className="text-sm text-gray-500">
+                      Tidak ada data pantangan.
                     </p>
                   )}
                 </div>
+
+                {/* Fitur Feedback */}
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+                    <MessageSquare className="mr-2 h-5 w-5" /> Feedback untuk
+                    Perawat
+                  </h4>
+                  <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-2">
+                    {feedbackList.map((fb) => (
+                      <div
+                        key={fb.idFeedback}
+                        className={`p-3 rounded-lg ${
+                          fb.isResolved ? "bg-gray-100" : "bg-blue-50"
+                        }`}
+                      >
+                        <p className="text-sm text-gray-800">{fb.pesan}</p>
+                        <div className="flex justify-between items-center mt-2">
+                          <p className="text-xs text-gray-500">
+                            Dari: {fb.pengirim.namaUser} -{" "}
+                            {formatDate(fb.created_at)}
+                          </p>
+                          {fb.isResolved && (
+                            <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                              Telah Disesuaikan
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <textarea
+                      value={newFeedback}
+                      onChange={(e) => setNewFeedback(e.target.value)}
+                      placeholder="Tulis catatan atau permintaan penyesuaian untuk perawat..."
+                      className="w-full p-2 border rounded-md text-sm text-black"
+                      rows={2}
+                    />
+                    <Button onClick={handleSendFeedback}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-16 bg-gray-800/50 rounded-lg shadow-md border border-gray-700 backdrop-blur-sm">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <p className="text-gray-300 text-lg">
-                Semua data pasien sudah tervalidasi.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="bg-gray-200 rounded-lg p-12 text-center">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Pilih Pasien
+                </h3>
+                <p className="text-gray-500">
+                  Pilih pasien dari daftar di sebelah kiri untuk melihat detail
+                  dan melakukan validasi.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
 
       <NotificationModal
         isOpen={isModalOpen}

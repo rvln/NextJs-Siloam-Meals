@@ -95,6 +95,7 @@ export default function ManagePatient() {
                 namaMakanan: pt.makanan ? pt.makanan.namaMakanan : "",
               }))
             : [],
+          Feedback: p.Feedback ?? [],
         }));
 
         setPatients(mappedPatients);
@@ -172,6 +173,7 @@ export default function ManagePatient() {
           makananId: pt.makanan ? pt.makanan.idMakanan : null,
           namaMakanan: pt.makanan ? pt.makanan.namaMakanan : "",
         })),
+        Feedback: created.Feedback ?? [],
       };
 
       setPatients([...patients, mapped]);
@@ -243,6 +245,7 @@ export default function ManagePatient() {
           makananId: pt.makanan ? pt.makanan.idMakanan : null,
           namaMakanan: pt.makanan ? pt.makanan.namaMakanan : "",
         })),
+        Feedback: saved.Feedback ?? [],
       };
 
       setPatients(patients.map((p) => (p.id === mapped.id ? mapped : p)));

@@ -1,3 +1,5 @@
+import { Feedback } from "./feedback";
+
 export interface ApiMakananInfo {
   idMakanan: number;
   namaMakanan: string;
@@ -16,8 +18,8 @@ export interface ApiPatient {
   namaPasien: string;
   ruanganInap: string;
   diagnosa: string;
-  noKtp: string;
-  tanggalLahir: string;
+  noKtp: string | null;
+  tanggalLahir: string | null;
   status: string;
   validate: boolean;
   link: string;
@@ -29,6 +31,7 @@ export interface ApiPatient {
     namaUser: string;
   };
   Pantangan: ApiPantangan[];
+  Feedback: Feedback[]; // Menambahkan feedback
 }
 
 export interface PantanganForm {
@@ -42,12 +45,13 @@ export interface Patient {
   uuid: string;
   namaPasien: string;
   mr: string;
-  ruanganInap: string; // Diubah dari tempatTidur
+  ruanganInap: string;
   diagnosa: string;
-  noKtp?: string | null; // Ditambahkan
-  tanggalLahir?: string | null; // Ditambahkan
+  noKtp: string | null;
+  tanggalLahir: string | null;
   validate: boolean;
   Pantangan: PantanganForm[];
+  Feedback: Feedback[]; // Menambahkan feedback
 }
 
 export interface CreatePatientFormData {
@@ -55,22 +59,9 @@ export interface CreatePatientFormData {
   mr: string;
   ruanganInap: string;
   diagnosa: string;
-  noKtp?: string;
-  tanggalLahir?: string;
+  noKtp: string;
+  tanggalLahir: string;
   Pantangan: PantanganForm[];
-}
-
-export interface PatientPayload {
-  namaPasien: string;
-  mr: string;
-  ruanganInap: string;
-  diagnosa: string;
-  noKtp?: string;
-  tanggalLahir?: string;
-  Pantangan: {
-    namaPantangan: string;
-    makananId: number;
-  }[];
 }
 
 export interface MakananOption {

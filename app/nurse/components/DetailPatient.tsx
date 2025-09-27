@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Patient } from "../types/patient";
+import { Feedback } from "../types/feedback";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { QrCode, FilePenLine, ShieldCheck, ShieldAlert } from "lucide-react";
+import {
+  QrCode,
+  FilePenLine,
+  ShieldCheck,
+  ShieldAlert,
+  MessageSquare,
+  Check,
+} from "lucide-react";
 import Image from "next/image";
 import NotificationModal from "@/components/ui/NotificationModal";
 
@@ -32,6 +40,69 @@ export default function PatientDetailView({
     message: "",
     type: "success" as "success" | "error",
   });
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
+
+  useEffect(() => {
+    if (patient) {
+      fetchFeedback(patient.id);
+    }
+  }, [patient]);
+
+  const fetchFeedback = async (pasienId: number) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/feedback/pasien/${pasienId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error("Gagal mengambil data feedback");
+      const data: Feedback[] = await res.json();
+      setFeedbackList(data);
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  const handleResolveFeedback = async (feedbackId: number) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/feedback/${feedbackId}/resolve`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error("Gagal menyelesaikan feedback");
+
+      // Perbarui state secara lokal
+      setFeedbackList((prev) =>
+        prev.map((fb) =>
+          fb.idFeedback === feedbackId ? { ...fb, isResolved: true } : fb
+        )
+      );
+
+      setModalContent({
+        title: "Berhasil",
+        message: "Feedback telah ditandai selesai.",
+        type: "success",
+      });
+      setIsModalOpen(true);
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  const handleError = (error: unknown) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan yang tidak diketahui";
+    setModalContent({ title: "Terjadi Kesalahan", message, type: "error" });
+    setIsModalOpen(true);
+  };
 
   const handleGenerateQr = async () => {
     setIsLoadingQr(true);
@@ -46,27 +117,14 @@ export default function PatientDetailView({
       );
 
       if (!response.ok) {
-        throw new Error("Gagal membuat QR Code");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Gagal membuat QR Code");
       }
 
       const data = await response.json();
       setQrCodeUrl(data.qrCodeUrl);
     } catch (err) {
-      console.error("Error generating QR Code:", err);
-      if (err instanceof Error) {
-        setModalContent({
-          title: "Terjadi Kesalahan",
-          message: err.message,
-          type: "error",
-        });
-      } else {
-        setModalContent({
-          title: "Terjadi Kesalahan",
-          message: "Terjadi kesalahan yang tidak diketahui",
-          type: "error",
-        });
-      }
-      setIsModalOpen(true);
+      handleError(err);
     } finally {
       setIsLoadingQr(false);
     }
@@ -86,7 +144,7 @@ export default function PatientDetailView({
     document.body.removeChild(link);
   };
 
-  const formatDate = (dateString: string | null | undefined) => {
+  const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("id-ID", {
       day: "numeric",
@@ -94,6 +152,15 @@ export default function PatientDetailView({
       year: "numeric",
     });
   };
+
+  const formatDateTime = (dateString: string) =>
+    new Date(dateString).toLocaleString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -160,7 +227,7 @@ export default function PatientDetailView({
 
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
             <div className="bg-gray-50 rounded-lg p-6">
               <div className="flex items-center gap-4 mb-4">
                 <h3 className="text-xl font-semibold text-gray-900">
@@ -200,7 +267,7 @@ export default function PatientDetailView({
                     Tanggal Lahir
                   </p>
                   <p className="text-gray-900">
-                    {formatDate(patient.tanggalLahir)}
+                    {formatDate(patient.tanggalLahir || "")}
                   </p>
                 </div>
                 <div className="sm:col-span-2">
@@ -209,8 +276,49 @@ export default function PatientDetailView({
                 </div>
               </div>
             </div>
+
+            {/* Kotak Feedback */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-blue-500" />
+                Feedback dari Dietisien
+              </h4>
+              {feedbackList.length > 0 ? (
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                  {feedbackList.map((fb) => (
+                    <div
+                      key={fb.idFeedback}
+                      className={`p-3 rounded-lg flex justify-between items-start ${
+                        fb.isResolved ? "bg-gray-100" : "bg-white"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm text-gray-800">{fb.pesan}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Dari: {fb.pengirim.namaUser} -{" "}
+                          {formatDateTime(fb.created_at)}
+                        </p>
+                      </div>
+                      {!fb.isResolved && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleResolveFeedback(fb.idFeedback)}
+                        >
+                          <Check className="mr-1 h-4 w-4" />
+                          Selesai
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">Tidak ada feedback.</p>
+              )}
+            </div>
           </div>
 
+          {/* Kolom Pantangan */}
           <div>
             <div className="bg-orange-50 rounded-lg p-6">
               <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
