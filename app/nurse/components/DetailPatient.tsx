@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Patient } from "../types/patient";
-import { Feedback } from "../types/feedback";
 import {
   Dialog,
   DialogContent,
@@ -12,16 +11,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  QrCode,
-  FilePenLine,
-  ShieldCheck,
-  ShieldAlert,
-  MessageSquare,
-  Check,
-} from "lucide-react";
+import { QrCode, FilePenLine, MessageSquare, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import NotificationModal from "@/components/ui/NotificationModal";
+import { Feedback } from "../types/feedback";
 
 interface PatientDetailViewProps {
   patient: Patient;
@@ -35,18 +28,25 @@ export default function PatientDetailView({
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isLoadingQr, setIsLoadingQr] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [modalContent, setModalContent] = useState({
     title: "",
     message: "",
     type: "success" as "success" | "error",
   });
-  const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
 
-  useEffect(() => {
-    if (patient) {
-      fetchFeedback(patient.id);
-    }
-  }, [patient]);
+  const handleError = (error: unknown) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan yang tidak diketahui";
+    setModalContent({
+      title: "Terjadi Kesalahan",
+      message,
+      type: "error",
+    });
+    setIsModalOpen(true);
+  };
 
   const fetchFeedback = async (pasienId: number) => {
     try {
@@ -59,56 +59,22 @@ export default function PatientDetailView({
       );
       if (!res.ok) throw new Error("Gagal mengambil data feedback");
       const data: Feedback[] = await res.json();
-      setFeedbackList(data);
+      setFeedbacks(data);
     } catch (error) {
       handleError(error);
     }
   };
 
-  const handleResolveFeedback = async (feedbackId: number) => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/feedback/${feedbackId}/resolve`,
-        {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!res.ok) throw new Error("Gagal menyelesaikan feedback");
-
-      // Perbarui state secara lokal
-      setFeedbackList((prev) =>
-        prev.map((fb) =>
-          fb.idFeedback === feedbackId ? { ...fb, isResolved: true } : fb
-        )
-      );
-
-      setModalContent({
-        title: "Berhasil",
-        message: "Feedback telah ditandai selesai.",
-        type: "success",
-      });
-      setIsModalOpen(true);
-    } catch (error) {
-      handleError(error);
+  useEffect(() => {
+    if (patient) {
+      fetchFeedback(patient.id);
     }
-  };
-
-  const handleError = (error: unknown) => {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Terjadi kesalahan yang tidak diketahui";
-    setModalContent({ title: "Terjadi Kesalahan", message, type: "error" });
-    setIsModalOpen(true);
-  };
+  }, [patient]);
 
   const handleGenerateQr = async () => {
     setIsLoadingQr(true);
     try {
       const token = localStorage.getItem("accessToken");
-
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/pasien/qr/${patient.uuid}`,
         {
@@ -117,8 +83,7 @@ export default function PatientDetailView({
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Gagal membuat QR Code");
+        throw new Error("Gagal membuat QR Code");
       }
 
       const data = await response.json();
@@ -132,35 +97,30 @@ export default function PatientDetailView({
 
   const handleDownloadImage = () => {
     if (!qrCodeUrl) return;
-
     const link = document.createElement("a");
-
     link.href = qrCodeUrl;
-
     link.download = `qr-code-${patient.namaPasien}.png`;
-
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+  const handleResolveFeedback = async (feedbackId: number) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/feedback/${feedbackId}/resolve`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error("Gagal menyelesaikan feedback");
+      fetchFeedback(patient.id); // Refresh feedback list
+    } catch (error) {
+      handleError(error);
+    }
   };
-
-  const formatDateTime = (dateString: string) =>
-    new Date(dateString).toLocaleString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -227,25 +187,24 @@ export default function PatientDetailView({
 
       <div className="p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="flex items-center gap-4 mb-4">
+          <div className="lg:col-span-2">
+            <div className="bg-gray-150 rounded-lg p-6">
+              <div className="flex items-start justify-between mb-4">
                 <h3 className="text-xl font-semibold text-gray-900">
                   {patient.namaPasien}
                 </h3>
                 {patient.validate ? (
-                  <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                  <span className="text-xs font-semibold text-green-700 bg-green-100 px-2.5 py-1 rounded-full flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
                     Tervalidasi oleh Dietisien
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                    <ShieldAlert className="h-3.5 w-3.5" />
+                  <span className="text-xs font-semibold text-yellow-700 bg-yellow-100 px-2.5 py-1 rounded-full">
                     Belum Tervalidasi
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-black">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500">
                     Medical Record
@@ -258,69 +217,32 @@ export default function PatientDetailView({
                   </p>
                   <p className="text-gray-900">{patient.ruanganInap}</p>
                 </div>
+                <div className="sm:col-span-2">
+                  <p className="text-sm font-medium text-gray-500">Diagnosa</p>
+                  <p className="text-gray-900">{patient.diagnosa}</p>
+                </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">No. KTP</p>
-                  <p className="text-gray-900">{patient.noKtp || "N/A"}</p>
+                  <p className="text-gray-900">{patient.noKtp || "-"}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">
                     Tanggal Lahir
                   </p>
                   <p className="text-gray-900">
-                    {formatDate(patient.tanggalLahir || "")}
+                    {patient.tanggalLahir
+                      ? new Date(patient.tanggalLahir).toLocaleDateString(
+                          "id-ID"
+                        )
+                      : "-"}
                   </p>
-                </div>
-                <div className="sm:col-span-2">
-                  <p className="text-sm font-medium text-gray-500">Diagnosa</p>
-                  <p className="text-gray-900">{patient.diagnosa}</p>
                 </div>
               </div>
             </div>
-
-            {/* Kotak Feedback */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-blue-500" />
-                Feedback dari Dietisien
-              </h4>
-              {feedbackList.length > 0 ? (
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                  {feedbackList.map((fb) => (
-                    <div
-                      key={fb.idFeedback}
-                      className={`p-3 rounded-lg flex justify-between items-start ${
-                        fb.isResolved ? "bg-gray-100" : "bg-white"
-                      }`}
-                    >
-                      <div>
-                        <p className="text-sm text-gray-800">{fb.pesan}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Dari: {fb.pengirim.namaUser} -{" "}
-                          {formatDateTime(fb.created_at)}
-                        </p>
-                      </div>
-                      {!fb.isResolved && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleResolveFeedback(fb.idFeedback)}
-                        >
-                          <Check className="mr-1 h-4 w-4" />
-                          Selesai
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">Tidak ada feedback.</p>
-              )}
-            </div>
           </div>
 
-          {/* Kolom Pantangan */}
           <div>
-            <div className="bg-orange-50 rounded-lg p-6">
+            <div className="bg-orange-150 rounded-lg p-6">
               <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-orange-500"
@@ -359,6 +281,56 @@ export default function PatientDetailView({
               ) : (
                 <p className="text-gray-500 text-sm">
                   Tidak ada pantangan makanan
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Feedback Section */}
+        <div className="mt-6">
+          <div className="bg-blue-50 rounded-lg p-6">
+            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-blue-500" />
+              Feedback dari Dietisien
+            </h4>
+            <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+              {feedbacks.length > 0 ? (
+                feedbacks.map((feedback) => (
+                  <div
+                    key={feedback.idFeedback}
+                    className="bg-white border border-blue-200 rounded-md p-3 flex justify-between items-start gap-4"
+                  >
+                    <div>
+                      <p className="text-sm text-gray-800">{feedback.pesan}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Oleh: <strong>{feedback.pengirim.namaUser}</strong> -{" "}
+                        {new Date(feedback.created_at).toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      {feedback.isResolved ? (
+                        <span className="text-xs font-semibold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
+                          Selesai
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            handleResolveFeedback(feedback.idFeedback)
+                          }
+                          className="text-xs text-black border-gray-300 hover:bg-gray-200 transition-colors"
+                        >
+                          Selesaikan
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  Belum ada feedback untuk pasien ini.
                 </p>
               )}
             </div>
