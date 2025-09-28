@@ -11,7 +11,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { QrCode, FilePenLine, MessageSquare, CheckCircle } from "lucide-react";
+import {
+  QrCode,
+  FilePenLine,
+  MessageSquare,
+  CheckCircle,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import Image from "next/image";
 import NotificationModal from "@/components/ui/NotificationModal";
 import { Feedback } from "../types/feedback";
@@ -89,7 +96,21 @@ export default function PatientDetailView({
       const data = await response.json();
       setQrCodeUrl(data.qrCodeUrl);
     } catch (err) {
-      handleError(err);
+      console.error("Error generating QR Code:", err);
+      if (err instanceof Error) {
+        setModalContent({
+          title: "Terjadi Kesalahan",
+          message: err.message,
+          type: "error",
+        });
+      } else {
+        setModalContent({
+          title: "Terjadi Kesalahan",
+          message: "Terjadi kesalahan yang tidak diketahui",
+          type: "error",
+        });
+      }
+      setIsModalOpen(true);
     } finally {
       setIsLoadingQr(false);
     }
@@ -103,6 +124,15 @@ export default function PatientDetailView({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   };
 
   const handleResolveFeedback = async (feedbackId: number) => {
@@ -130,11 +160,18 @@ export default function PatientDetailView({
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Dialog>
               <DialogTrigger asChild>
+                {/* PERUBAHAN DI SINI: Tombol di-disable jika pasien belum tervalidasi */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleGenerateQr}
                   className="flex-1 sm:flex-initial flex items-center gap-2 text-black"
+                  disabled={!patient.validate}
+                  title={
+                    !patient.validate
+                      ? "Pasien harus divalidasi oleh dietisien terlebih dahulu"
+                      : "Tampilkan QR Code"
+                  }
                 >
                   <QrCode className="h-4 w-4" />
                   Tampilkan QR
@@ -186,6 +223,31 @@ export default function PatientDetailView({
       </div>
 
       <div className="p-6">
+        {/* Status Validasi */}
+        <div className="mb-6">
+          {patient.validate ? (
+            <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-md flex items-center">
+              <ShieldCheck className="h-6 w-6 mr-3" />
+              <div>
+                <p className="font-bold">Tervalidasi oleh Dietisien</p>
+                <p className="text-sm">
+                  Pasien sudah dapat menggunakan QR code untuk memesan makanan.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md flex items-center">
+              <ShieldAlert className="h-6 w-6 mr-3" />
+              <div>
+                <p className="font-bold">Belum Tervalidasi</p>
+                <p className="text-sm">
+                  Tombol "Tampilkan QR" akan aktif setelah data divalidasi oleh
+                  ahli gizi.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <div className="bg-gray-150 rounded-lg p-6">
@@ -193,16 +255,6 @@ export default function PatientDetailView({
                 <h3 className="text-xl font-semibold text-gray-900">
                   {patient.namaPasien}
                 </h3>
-                {patient.validate ? (
-                  <span className="text-xs font-semibold text-green-700 bg-green-100 px-2.5 py-1 rounded-full flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Tervalidasi oleh Dietisien
-                  </span>
-                ) : (
-                  <span className="text-xs font-semibold text-yellow-700 bg-yellow-100 px-2.5 py-1 rounded-full">
-                    Belum Tervalidasi
-                  </span>
-                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
