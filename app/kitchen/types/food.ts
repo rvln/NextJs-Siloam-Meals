@@ -15,6 +15,7 @@ export interface Makanan {
   id: number;
   nama: string;
   jenis: Jenis;
+  isPaket: boolean;
   gambar: string | null;
   createdBy: string;
   utamaDari: KomponenUtama[];
@@ -30,6 +31,7 @@ export interface ApiMakanan {
   idMakanan: number;
   namaMakanan: string;
   jenis: Jenis;
+  isPaket: boolean;
   gambar: string | null;
   user: {
     namaUser: string;

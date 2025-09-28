@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Order from "./Order";
 import Image from "next/image";
-import { Calendar } from "lucide-react";
+import { Calendar, Check } from "lucide-react";
 
 export interface Utama {
   idMakanan: number;
@@ -16,6 +16,7 @@ export interface ApiMakanan {
   namaMakanan: string;
   gambar: string;
   jenis: string;
+  isPaket: boolean;
   utamaDari?: Utama[];
 }
 
@@ -30,6 +31,7 @@ export interface MenuItem {
   nama: string;
   image: string;
   jenis: string;
+  isPaket: boolean;
   utamaDari?: Utama[];
 }
 
@@ -48,6 +50,10 @@ export default function Menu({ uuid, initialData }: MenuProps) {
   const [error, setError] = useState<string | null>(null); // Status jika ada error
 
   const [disabledSessions, setDisabledSessions] = useState<string[]>([]);
+  // STATE BARU UNTUK MENU PAKET
+  const [showPackageConfirm, setShowPackageConfirm] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     const fetchMenuData = async () => {
@@ -131,25 +137,64 @@ export default function Menu({ uuid, initialData }: MenuProps) {
     fetchMenuData();
   }, [uuid]);
 
-  // **LOGIKA BARU: Tentukan tanggal untuk ditampilkan**
-  const getOrderDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return new Intl.DateTimeFormat("id-ID", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(tomorrow);
-  };
-
-  const handleOrderClick = (dishData: ApiMakanan) => {
-    // Transformasi data dari API ke format yang dibutuhkan komponen Order
+  // FUNGSI BARU UNTUK PESAN PAKET
+  const handlePackageOrder = (dishData: ApiMakanan) => {
     const dishToOrder: MenuItem = {
       makananId: dishData.idMakanan,
       nama: dishData.namaMakanan,
       image: dishData.gambar,
       jenis: dishData.jenis,
+      isPaket: dishData.isPaket,
+      utamaDari: dishData.utamaDari,
+    };
+    setSelectedDish(dishToOrder);
+    setShowPackageConfirm(true);
+  };
+
+  // FUNGSI BARU UNTUK KONFIRMASI PESANAN PAKET
+  const confirmPackageOrder = async () => {
+    if (!selectedDish) return;
+    setProcessing(true);
+    try {
+      const mainDish = { makananId: selectedDish.makananId };
+      const sideDishes =
+        selectedDish.utamaDari?.map((item) => ({
+          makananId: item.idMakanan,
+        })) ?? [];
+      const details = [mainDish, ...sideDishes];
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/pesanan/${uuid}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sesi: activeMenu?.namaMenu, details }),
+        }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert("Gagal membuat pesanan: " + error.message);
+        return;
+      }
+      setShowPackageConfirm(false);
+    } catch (err) {
+      console.error("Error saat membuat pesanan:", err);
+      alert("Terjadi kesalahan saat membuat pesanan");
+    } finally {
+      setProcessing(false);
+      setShowSuccessModal(true);
+    }
+  };
+
+  // FUNGSI LAMA UNTUK PESAN MENU FLEKSIBEL
+  const handleFlexibleOrderClick = (dishData: ApiMakanan) => {
+    const dishToOrder: MenuItem = {
+      makananId: dishData.idMakanan,
+      nama: dishData.namaMakanan,
+      image: dishData.gambar,
+      jenis: dishData.jenis,
+      isPaket: dishData.isPaket,
       utamaDari: dishData.utamaDari,
     };
     setSelectedDish(dishToOrder);
@@ -164,7 +209,6 @@ export default function Menu({ uuid, initialData }: MenuProps) {
   const activeMenu = menuList.find((menu) => menu.idMenu === selectedMenuId);
 
   if (showOrder && selectedDish) {
-    console.log("selectedDish di menu.tsx:", selectedDish);
     return (
       <Order
         selectedDish={selectedDish}
@@ -185,12 +229,12 @@ export default function Menu({ uuid, initialData }: MenuProps) {
               Menu Pesanan Anda
             </h1>
             {/* Tampilkan tanggal pemesanan */}
-            <p className="text-green-200 mt-1 flex items-center justify-center sm:justify-start gap-2">
+            {/* <p className="text-green-200 mt-1 flex items-center justify-center sm:justify-start gap-2">
               <Calendar size={16} />
               <span>
                 Untuk hari: <strong>{getOrderDate()}</strong>
               </span>
-            </p>
+            </p> */}
           </div>
           <div>
             <h1 className="text-white text-2xl sm:text-3xl font-semibold">
@@ -263,14 +307,79 @@ export default function Menu({ uuid, initialData }: MenuProps) {
                   <h3 className="text-gray-800 font-medium text-lg mb-3">
                     {item.namaMakanan}
                   </h3>
+                  {item.isPaket && item.utamaDari && (
+                    <p className="text-xs text-gray-500 mb-3">
+                      Sudah termasuk:{" "}
+                      {item.utamaDari.map((u) => u.namaMakanan).join(", ")}
+                    </p>
+                  )}
 
-                  {/* Order Button */}
-                  <button
-                    onClick={() => handleOrderClick(item)}
-                    className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors self-start"
-                  >
-                    Klik untuk pesan
-                  </button>
+                  {/* LOGIKA TOMBOL BARU */}
+                  {item.isPaket ? (
+                    <button
+                      onClick={() => handlePackageOrder(item)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors self-start"
+                    >
+                      Pesan Paket Ini
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleFlexibleOrderClick(item)}
+                      className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors self-start"
+                    >
+                      Pilih Pendamping
+                    </button>
+                  )}
+                  {/* MODAL BARU UNTUK KONFIRMASI PAKET */}
+                  {showPackageConfirm && selectedDish && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+                      <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6 animate-fadeIn">
+                        <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                          Konfirmasi Pesanan Paket
+                        </h2>
+                        <p className="text-gray-600 mb-4">
+                          Anda akan memesan paket berikut:
+                        </p>
+
+                        <div className="mb-6 space-y-2 p-4 bg-gray-50 rounded-lg">
+                          <div className="font-bold text-gray-800 flex items-center gap-2">
+                            {" "}
+                            <Check size={16} className="text-green-500" />{" "}
+                            {selectedDish.nama}
+                          </div>
+                          {selectedDish.utamaDari?.map((item) => (
+                            <div
+                              key={item.idMakanan}
+                              className="text-gray-600 pl-6 text-sm flex items-center gap-2"
+                            >
+                              <Check size={14} className="text-green-500" />
+                              {item.namaMakanan}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                          <button
+                            className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition text-black"
+                            onClick={() => {
+                              setShowPackageConfirm(false);
+                              setSelectedDish(null);
+                            }}
+                            disabled={processing}
+                          >
+                            Batal
+                          </button>
+                          <button
+                            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 transition"
+                            onClick={confirmPackageOrder}
+                            disabled={processing}
+                          >
+                            {processing ? "Memproses..." : "Ya, Pesan"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
