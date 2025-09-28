@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Jenis, Makanan } from "../types/food";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { CalendarIcon, X } from "lucide-react";
 
 interface CreateFoodProps {
   onCreate: (formData: FormData) => void;
@@ -31,6 +32,28 @@ export default function CreateFood({
     Record<string, number | "">
   >({});
   const [menuId, setMenuId] = useState<number | "">("");
+  // State baru untuk tanggal tersedia
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
+  const [dateInput, setDateInput] = useState("");
+
+  const handleAddDate = () => {
+    if (dateInput) {
+      const newDate = new Date(dateInput);
+      // Cek agar tidak ada tanggal duplikat
+      if (!availableDates.find((d) => d.getTime() === newDate.getTime())) {
+        setAvailableDates(
+          [...availableDates, newDate].sort((a, b) => a.getTime() - b.getTime())
+        );
+      }
+      setDateInput(""); // Reset input
+    }
+  };
+
+  const handleRemoveDate = (dateToRemove: Date) => {
+    setAvailableDates(
+      availableDates.filter((d) => d.getTime() !== dateToRemove.getTime())
+    );
+  };
 
   const handleSideDishChange = (jenisSideDish: string, selectedId: string) => {
     setSelectedSideDishes((prev) => ({
@@ -74,6 +97,11 @@ export default function CreateFood({
         formData.append("utamaDariIds[]", String(id));
       });
     }
+
+    // Tambahkan tanggal ke FormData
+    availableDates.forEach((date) => {
+      formData.append("tanggalTersedia[]", date.toISOString());
+    });
 
     onCreate(formData);
   };
@@ -182,6 +210,49 @@ export default function CreateFood({
           </div>
         )}
 
+        {/* --- FITUR BARU: TANGGAL TERSEDIA --- */}
+        <div className="mt-6 pt-6 border-t">
+          <label className="block text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+            <CalendarIcon className="h-4 w-4" />
+            Tanggal Tersedia
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateInput}
+              onChange={(e) => setDateInput(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAddDate}
+              className="text-black"
+            >
+              Tambah
+            </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {availableDates.map((date) => (
+              <div
+                key={date.toISOString()}
+                className="flex items-center gap-2 bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full"
+              >
+                {date.toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+                <button
+                  onClick={() => handleRemoveDate(date)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
         {jenis === "Lauk" && (
           <div className="mt-6 pt-6 border-t">
             <h3 className="text-md font-semibold text-gray-800 mb-4">

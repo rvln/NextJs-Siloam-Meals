@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Jenis, Makanan } from "../types/food";
 import Image from "next/image";
+import { Calendar as CalendarIcon, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface EditFoodProps {
   food: Makanan;
@@ -20,28 +22,29 @@ export default function EditFood({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(food.gambar);
   const [editForm, setEditForm] = useState<Makanan>({ ...food });
-  const [isPaket, setIsPaket] = useState(food.isPaket);
+  const [isPaket, setIsPaket] = useState(food.isPaket ?? false);
   const [selectedSideDishes, setSelectedSideDishes] = useState<
     Record<string, number | "">
   >({});
+  // State baru untuk tanggal tersedia
+  const [availableDates, setAvailableDates] = useState<Date[]>([]);
+  const [dateInput, setDateInput] = useState("");
 
   useEffect(() => {
     setEditForm({ ...food });
     setPreviewUrl(food.gambar);
-    setIsPaket(food.isPaket);
+    setIsPaket(food.isPaket ?? false);
     setImageFile(null);
+
+    // Inisialisasi tanggal tersedia
+    const initialDates = food.tanggalTersedia.map((t) => new Date(t.tanggal));
+    setAvailableDates(initialDates.sort((a, b) => a.getTime() - b.getTime()));
 
     const initialSideDishes = food.utamaDari.reduce((acc, komponen) => {
       acc[komponen.jenis] = komponen.id;
       return acc;
     }, {} as Record<string, number>);
     setSelectedSideDishes(initialSideDishes);
-  }, [food]);
-
-  useEffect(() => {
-    setEditForm({ ...food });
-    setPreviewUrl(food.gambar);
-    setImageFile(null);
   }, [food]);
 
   const handleInputChange = (field: keyof Makanan, value: string | Jenis) => {
@@ -82,8 +85,32 @@ export default function EditFood({
       });
     }
 
+    // Tambahkan tanggal ke FormData
+    availableDates.forEach((date) => {
+      formData.append("tanggalTersedia[]", date.toISOString());
+    });
+
     onSave(editForm.id, formData);
   };
+
+  const handleAddDate = () => {
+    if (dateInput) {
+      const newDate = new Date(dateInput);
+      if (!availableDates.find((d) => d.getTime() === newDate.getTime())) {
+        setAvailableDates(
+          [...availableDates, newDate].sort((a, b) => a.getTime() - b.getTime())
+        );
+      }
+      setDateInput("");
+    }
+  };
+
+  const handleRemoveDate = (dateToRemove: Date) => {
+    setAvailableDates(
+      availableDates.filter((d) => d.getTime() !== dateToRemove.getTime())
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -174,6 +201,51 @@ export default function EditFood({
               </div>
             </div>
           )}
+
+          {/* --- FITUR BARU: TANGGAL TERSEDIA --- */}
+          <div className="mt-6 pt-6 border-t">
+            <label className="block text-sm font-medium text-gray-700 mb-2 items-center gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              Tanggal Tersedia
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateInput}
+                onChange={(e) => setDateInput(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md bg-white text-black"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddDate}
+                className="text-black"
+              >
+                Tambah
+              </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {availableDates.map((date) => (
+                <div
+                  key={date.toISOString()}
+                  className="flex items-center gap-2 bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full"
+                >
+                  {date.toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                  <button
+                    onClick={() => handleRemoveDate(date)}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* CHECKBOX BARU UNTUK isPaket */}
           {editForm.jenis === "Lauk" && (
             <div className="mt-4 flex items-center gap-2">

@@ -15,7 +15,7 @@ export interface Makanan {
   id: number;
   nama: string;
   jenis: Jenis;
-  isPaket: boolean;
+  isPaket?: boolean;
   gambar: string | null;
   createdBy: string;
   utamaDari: KomponenUtama[];
