@@ -15,6 +15,8 @@ export interface ApiPesanan {
     namaPasien: string;
   };
   sesi: string;
+  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL";
+  namaPasienHistory: string | null; // Tambahkan histori nama pasien
   tanggal: string; // ISO string date
   PesananDetail: PesananDetail[];
 }
@@ -24,6 +26,7 @@ export interface Pesanan {
   id: number;
   namaPasien: string;
   sesi: string;
+  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL";
   tanggal: Date;
   detail: DetailMakanan[];
 }

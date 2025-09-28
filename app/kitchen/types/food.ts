@@ -55,19 +55,24 @@ export interface ApiPesananDetail {
 
 export interface ApiPesanan {
   idPesanan: number;
-  sesi: string; // 'Menu Pagi', 'Menu Siang', dll.
+  sesi: string;
   tanggal: string;
+  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL"; // Tambahkan status
+  namaPasienHistory: string | null; // Tambahkan histori nama
   pasien: {
+    // Pasien bisa null
     namaPasien: string;
-  };
+    ruanganInap: string;
+  } | null;
   PesananDetail: ApiPesananDetail[];
 }
-
 export interface Pesanan {
   id: number;
   sesi: string;
   tanggal: Date;
   namaPasien: string;
+  ruanganInap: string; // Tambahkan ruangan inap
+  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL"; // Tambahkan status
   detail: {
     id: number;
     namaMakanan: string;

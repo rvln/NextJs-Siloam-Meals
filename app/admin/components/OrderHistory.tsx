@@ -48,8 +48,10 @@ export default function OrderHistory() {
 
         const mappedOrders: Pesanan[] = dataFromApi.map((o) => ({
           id: o.idPesanan,
-          namaPasien: o.pasien.namaPasien,
+          namaPasien:
+            o.pasien?.namaPasien ?? o.namaPasienHistory ?? "Pasien Dihapus",
           sesi: o.sesi,
+          status: o.status,
           tanggal: new Date(o.tanggal),
           detail: o.PesananDetail.map((d) => ({
             namaMakanan: d.makanan.namaMakanan,
@@ -119,6 +121,19 @@ export default function OrderHistory() {
                       <User size={18} /> {order.namaPasien}
                     </p>
                     <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <span
+                        className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                          order.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : order.status === "SELESAI"
+                            ? "bg-blue-100 text-blue-800"
+                            : order.status === "DITERIMA"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800" // BATAL
+                        }`}
+                      >
+                        {order.status}
+                      </span>
                       <span className="flex items-center gap-1.5">
                         <Calendar size={14} /> {formatDate(order.tanggal)}
                       </span>
