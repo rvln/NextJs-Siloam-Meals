@@ -101,9 +101,23 @@ export default function KitchenView() {
     return acc;
   }, {} as Record<string, Pesanan[]>);
 
+  // Membuat tanggal untuk besok
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
   return (
     <div className="p-4 sm:p-6 md:p-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Pesanan Dapur</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        Pesanan untuk{" "}
+        <span>
+          {tomorrow.toLocaleDateString("id-ID", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </span>
+      </h2>
       <div className="space-y-8">
         {Object.keys(groupedOrders).length > 0 ? (
           Object.entries(groupedOrders).map(([sesi, pesananSesi]) => (
