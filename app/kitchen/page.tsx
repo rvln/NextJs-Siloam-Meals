@@ -109,8 +109,8 @@ export default function HomePage() {
             >
               Jadwal Menu Bulanan
             </button>
-            {/* TOMBOL TAB BARU */}
-            <button
+            {/* TOMBOL TAB RIWAYAT PESANAN */}
+            {/* <button
               onClick={() => setActiveTab("history")}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                 activeTab === "history"
@@ -119,7 +119,7 @@ export default function HomePage() {
               }`}
             >
               Riwayat Pesanan
-            </button>
+            </button> */}
           </nav>
         </div>
 
