@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { ApiPesanan, Pesanan } from "../types/food";
+import { ApiPesanan, Pesanan, Jenis } from "../types/food";
 
 const JenisBadge = ({ jenis }: { jenis: string }) => {
   const getColor = () => {
@@ -73,8 +73,11 @@ export default function KitchenView() {
           status: p.status ?? "BATAL",
           detail: p.PesananDetail.map((d) => ({
             id: d.idPesananDetail,
-            namaMakanan: d.makanan.namaMakanan,
-            jenis: d.makanan.jenis,
+            namaMakanan:
+              d.makanan?.namaMakanan ??
+              d.namaMakananHistory ??
+              "Makanan Dihapus",
+            jenis: d.makanan?.jenis ?? (d.jenisHistory as Jenis) ?? Jenis.Lauk, // default aman dari enum
           })),
         }));
         setOrders(mappedOrders);

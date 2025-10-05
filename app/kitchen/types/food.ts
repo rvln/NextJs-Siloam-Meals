@@ -45,41 +45,45 @@ export interface ApiMakanan {
 }
 
 export interface DetailMakanan {
-  idMakanan: number;
+  id: number;
   namaMakanan: string;
   jenis: Jenis;
 }
 
+// --- PERUBAHAN: Menyesuaikan tipe dengan backend ---
 export interface ApiPesananDetail {
   idPesananDetail: number;
-  makanan: DetailMakanan;
+  makanan: {
+    namaMakanan: string;
+    jenis: Jenis;
+  } | null; // Makanan bisa null
+  namaMakananHistory?: string;
+  jenisHistory?: string;
 }
 
 export interface ApiPesanan {
   idPesanan: number;
   sesi: string;
   tanggal: string;
-  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL"; // Tambahkan status
-  namaPasienHistory: string | null; // Tambahkan histori nama
+  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL";
+  namaPasienHistory: string | null;
+  ruanganInapHistory: string | null; // Tambahan
   pasien: {
-    // Pasien bisa null
     namaPasien: string;
     ruanganInap: string;
-  } | null;
+  } | null; // Pasien bisa null
   PesananDetail: ApiPesananDetail[];
 }
+// ----------------------------------------------------
+
 export interface Pesanan {
   id: number;
   sesi: string;
   tanggal: Date;
   namaPasien: string;
   ruanganInap: string; // Tambahkan ruangan inap
-  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL"; // Tambahkan status
-  detail: {
-    id: number;
-    namaMakanan: string;
-    jenis: Jenis;
-  }[];
+  status: "PENDING" | "SELESAI" | "DITERIMA" | "BATAL";
+  detail: DetailMakanan[];
 }
 
 export enum Jenis {

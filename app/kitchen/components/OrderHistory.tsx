@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { ApiPesanan, Pesanan } from "../types/food";
+import { ApiPesanan, Pesanan, Jenis } from "../types/food";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Tipe data untuk rekapitulasi lauk
@@ -72,14 +72,21 @@ export default function OrderHistory() {
           id: p.idPesanan,
           sesi: p.sesi,
           tanggal: new Date(p.tanggal),
+          // --- PERUBAHAN: Gunakan data history sebagai fallback ---
           namaPasien:
             p.pasien?.namaPasien ?? p.namaPasienHistory ?? "Pasien Dihapus",
-          ruanganInap: p.pasien?.ruanganInap ?? "N/A",
+          ruanganInap: p.pasien?.ruanganInap ?? p.ruanganInapHistory ?? "N/A",
+          // --------------------------------------------------------
           status: p.status ?? "BATAL",
           detail: p.PesananDetail.map((d) => ({
             id: d.idPesananDetail,
-            namaMakanan: d.makanan.namaMakanan,
-            jenis: d.makanan.jenis,
+            // --- PERUBAHAN: Gunakan data history sebagai fallback ---
+            namaMakanan:
+              d.makanan?.namaMakanan ??
+              d.namaMakananHistory ??
+              "Makanan Dihapus",
+            jenis: d.makanan?.jenis ?? (d.jenisHistory as Jenis) ?? Jenis.Lauk, // fallback enum default
+            // --------------------------------------------------------
           })),
         }));
         setHistory(mappedHistory);
@@ -92,7 +99,7 @@ export default function OrderHistory() {
     };
 
     fetchHistory();
-  }, []);
+  }, [currentDate, filterType, startDate, endDate]);
 
   const handlePrevMonth = () => {
     setCurrentDate(

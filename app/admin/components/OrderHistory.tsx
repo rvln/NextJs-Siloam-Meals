@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { Pesanan, ApiPesanan } from "../types/pesanan";
 import LogoutButton from "@/components/ui/LogoutButton";
-import { Calendar, Utensils, User, NotebookText } from "lucide-react";
+import { Calendar, Utensils, User, NotebookText, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import NotificationModal from "@/components/ui/NotificationModal";
 
 interface JwtPayload {
   username: string;
@@ -16,6 +26,13 @@ export default function OrderHistory() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<Pesanan | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState({
+    title: "",
+    message: "",
+    type: "success" as "success" | "error",
+  });
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -48,14 +65,21 @@ export default function OrderHistory() {
 
         const mappedOrders: Pesanan[] = dataFromApi.map((o) => ({
           id: o.idPesanan,
+          // --- PERUBAHAN: Gunakan data history sebagai fallback ---
           namaPasien:
             o.pasien?.namaPasien ?? o.namaPasienHistory ?? "Pasien Dihapus",
+          // --------------------------------------------------------
           sesi: o.sesi,
           status: o.status,
           tanggal: new Date(o.tanggal),
           detail: o.PesananDetail.map((d) => ({
-            namaMakanan: d.makanan.namaMakanan,
-            jenis: d.makanan.jenis,
+            // --- PERUBAHAN: Gunakan data history sebagai fallback ---
+            namaMakanan:
+              d.makanan?.namaMakanan ??
+              d.namaMakananHistory ??
+              "Makanan Dihapus",
+            jenis: d.makanan?.jenis ?? d.jenisHistory ?? "N/A",
+            // --------------------------------------------------------
           })),
         }));
 
@@ -72,6 +96,47 @@ export default function OrderHistory() {
     };
     fetchOrders();
   }, []);
+
+  const confirmDelete = async () => {
+    if (!orderToDelete) return;
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/pesanan/${orderToDelete.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Gagal menghapus riwayat pesanan.");
+      }
+
+      setOrders(orders.filter((o) => o.id !== orderToDelete.id));
+      setOrderToDelete(null);
+      setModalContent({
+        title: "Berhasil",
+        message: "Riwayat pesanan telah dihapus.",
+        type: "success",
+      });
+      setIsModalOpen(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan yang tidak diketahui.";
+      setModalContent({
+        title: "Gagal Menghapus",
+        message,
+        type: "error",
+      });
+      setIsModalOpen(true);
+      setOrderToDelete(null);
+    }
+  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("id-ID", {
@@ -140,6 +205,14 @@ export default function OrderHistory() {
                       <span className="flex items-center gap-1.5 font-semibold">
                         <Utensils size={14} /> {order.sesi}
                       </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setOrderToDelete(order)}
+                        className="text-red-400 hover:text-red-600 hover:bg-red-900/20"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -172,6 +245,39 @@ export default function OrderHistory() {
           )}
         </div>
       )}
+      <NotificationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={modalContent.title}
+        message={modalContent.message}
+        type={modalContent.type}
+      />
+      <Dialog
+        open={!!orderToDelete}
+        onOpenChange={() => setOrderToDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Penghapusan</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menghapus riwayat pesanan untuk pasien{" "}
+              <strong>{orderToDelete?.namaPasien}</strong> pada tanggal{" "}
+              <strong>
+                {orderToDelete && formatDate(orderToDelete.tanggal)}
+              </strong>
+              ? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOrderToDelete(null)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Ya, Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
