@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "http",
-        hostname: "192.168.1.11", // Gunakan Alamat IPv4 server backend NestJS Anda
+        hostname: "localhost", // Gunakan Alamat IPv4 server backend NestJS Anda
         port: "8080", // PASTIKAN PORT INI SESUAI DENGAN PORT BACKEND NESTJS ANDA
         pathname: "/public/**", // Opsional: Hanya izinkan gambar dari path /image/
       },
