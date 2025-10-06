@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { ApiPesanan, Pesanan } from "../types/food";
+import { ApiPesanan, Pesanan, Jenis } from "../types/food";
 
 const JenisBadge = ({ jenis }: { jenis: string }) => {
   const getColor = () => {
@@ -29,17 +29,39 @@ export default function KitchenView() {
   const [orders, setOrders] = useState<Pesanan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sesiCounts, setSesiCounts] = useState<{ [key: string]: number }>({
+    Pagi: 0,
+    Siang: 0,
+    Malam: 0,
+  });
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchAllData = async () => {
       try {
         const token = localStorage.getItem("accessToken");
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pesanan`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Gagal mengambil data pesanan");
+        if (!token) throw new Error("Token tidak ditemukan.");
 
-        const dataFromApi: ApiPesanan[] = await res.json();
+        // PERUBAHAN DI SINI: Panggil endpoint baru '/pesanan/dapur'
+        const resOrders = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/pesanan/dapur`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!resOrders.ok)
+          throw new Error("Gagal mengambil data pesanan dapur");
+        const dataFromApi: ApiPesanan[] = await resOrders.json();
+
+        // Ambil data jumlah pesanan per sesi (endpoint ini tetap sama)
+        const resCounts = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/pesanan/count-by-sesi`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!resCounts.ok) throw new Error("Gagal mengambil jumlah pesanan");
+        const countsData = await resCounts.json();
+        setSesiCounts(countsData);
 
         const mappedOrders: Pesanan[] = dataFromApi.map((p: ApiPesanan) => ({
           id: p.idPesanan,
@@ -51,8 +73,11 @@ export default function KitchenView() {
           status: p.status ?? "BATAL",
           detail: p.PesananDetail.map((d) => ({
             id: d.idPesananDetail,
-            namaMakanan: d.makanan.namaMakanan,
-            jenis: d.makanan.jenis,
+            namaMakanan:
+              d.makanan?.namaMakanan ??
+              d.namaMakananHistory ??
+              "Makanan Dihapus",
+            jenis: d.makanan?.jenis ?? (d.jenisHistory as Jenis) ?? Jenis.Lauk, // default aman dari enum
           })),
         }));
         setOrders(mappedOrders);
@@ -66,7 +91,7 @@ export default function KitchenView() {
         setIsLoading(false);
       }
     };
-    fetchOrders();
+    fetchAllData();
   }, []);
 
   // Mengelompokkan pesanan berdasarkan sesi
@@ -79,15 +104,30 @@ export default function KitchenView() {
     return acc;
   }, {} as Record<string, Pesanan[]>);
 
+  // Membuat tanggal untuk besok
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
   return (
     <div className="p-4 sm:p-6 md:p-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Pesanan Dapur</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        Pesanan untuk{" "}
+        <span>
+          {tomorrow.toLocaleDateString("id-ID", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </span>
+      </h2>
       <div className="space-y-8">
         {Object.keys(groupedOrders).length > 0 ? (
           Object.entries(groupedOrders).map(([sesi, pesananSesi]) => (
             <div key={sesi}>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-blue-500">
-                {sesi}
+              {/* PERUBAHAN DI SINI: Tampilkan jumlah pesanan di samping judul sesi */}
+              <h3 className="text-xl font-semibold text-white-800 mb-4 pb-2 border-b-2 border-blue-500">
+                {sesi} ({sesiCounts[sesi] || 0})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {pesananSesi.map((order) => (
