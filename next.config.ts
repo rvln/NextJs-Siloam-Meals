@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
         port: "8080", // PASTIKAN PORT INI SESUAI DENGAN PORT BACKEND NESTJS ANDA
         pathname: "/public/**", // Opsional: Hanya izinkan gambar dari path /image/
       },
+      {
+        protocol: "https",
+        hostname: "placehold.co",
+        port: "",
+        pathname: "/**",
+      },
     ],
   },
 };

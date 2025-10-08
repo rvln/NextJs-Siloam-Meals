@@ -110,7 +110,7 @@ export default function KitchenView() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
+      <h2 className="text-2xl font-bold text-white-800 mb-6">
         Pesanan untuk{" "}
         <span>
           {tomorrow.toLocaleDateString("id-ID", {

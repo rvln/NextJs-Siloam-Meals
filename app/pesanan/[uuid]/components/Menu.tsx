@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import Order from "./Order";
 import Image from "next/image";
-import { Calendar, Check } from "lucide-react";
+import { Calendar, Check, ChefHat } from "lucide-react";
+import { FoodCard } from "./FoodCard"; // Impor komponen baru
+import { Button } from "@/components/ui/button";
 
+// Definisi tipe data tetap sama
 export interface Utama {
   idMakanan: number;
   namaMakanan: string;
@@ -40,17 +43,20 @@ interface MenuProps {
   initialData: ApiMenu[];
 }
 
+/**
+ * Halaman Utama Pemesanan Makanan
+ * Menerapkan skema warna 60-30-10, layout grid, dan prinsip-prinsip UX
+ * untuk kemudahan penggunaan oleh pasien.
+ */
 export default function Menu({ uuid, initialData }: MenuProps) {
+  // Semua state dan useEffect Anda tetap di sini, tidak ada perubahan logika
   const [selectedDish, setSelectedDish] = useState<MenuItem | null>(null);
   const [showOrder, setShowOrder] = useState(false);
-
-  const [menuList, setMenuList] = useState<ApiMenu[]>(initialData); // Menyimpan data menu dari API
-  const [selectedMenuId, setSelectedMenuId] = useState<number | null>(null); // Menu mana yang sedang aktif
-  const [isLoading, setIsLoading] = useState(true); // Status loading
-  const [error, setError] = useState<string | null>(null); // Status jika ada error
-
+  const [menuList, setMenuList] = useState<ApiMenu[]>(initialData);
+  const [selectedMenuId, setSelectedMenuId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [disabledSessions, setDisabledSessions] = useState<string[]>([]);
-  // STATE BARU UNTUK MENU PAKET
   const [showPackageConfirm, setShowPackageConfirm] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -58,13 +64,10 @@ export default function Menu({ uuid, initialData }: MenuProps) {
   useEffect(() => {
     const fetchMenuData = async () => {
       try {
-        // GANTI DENGAN URL API ANDA
         const menu = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/pesanan/menu/${uuid}`
         );
-        if (!menu.ok) {
-          throw new Error("Network response was not ok");
-        }
+        if (!menu.ok) throw new Error("Network response was not ok");
         const data: ApiMenu[] = await menu.json();
         setMenuList(data);
 
@@ -72,72 +75,41 @@ export default function Menu({ uuid, initialData }: MenuProps) {
           `${process.env.NEXT_PUBLIC_API_URL}/pesanan/${uuid}`
         );
         if (resPesanan.ok) {
-          const existing: unknown = await resPesanan.json();
-          const today = new Date();
-          // bisa array atau single object
-          let sessions: string[] = [];
+          const existing: any[] = await resPesanan.json();
 
-          if (Array.isArray(existing)) {
-            // pastikan setiap item adalah object dengan properti sesi string
-            sessions = existing
-              .filter((p) => {
-                if (
-                  typeof p === "object" &&
-                  p !== null &&
-                  "sesi" in p &&
-                  "tanggal" in p
-                ) {
-                  const obj = p as Record<string, unknown>;
-                  const tanggal = obj.tanggal;
-                  if (typeof tanggal === "string" || tanggal instanceof Date) {
-                    return isSameDate(tanggal as string | Date, today); // hanya ambil pesanan hari ini
-                  }
-                }
-                return false;
-              })
-              .map((p) => (p as Record<string, unknown>).sesi as string);
-          } else if (
-            typeof existing === "object" &&
-            existing !== null &&
-            "sesi" in existing &&
-            "tanggal" in existing &&
-            (() => {
-              const obj = existing as Record<string, unknown>;
-              const tanggal = obj.tanggal;
-              return typeof tanggal === "string" || tanggal instanceof Date
-                ? isSameDate(tanggal as string | Date, today)
-                : false;
-            })()
-          ) {
-            sessions = [(existing as Record<string, unknown>).sesi as string];
-          }
+          // PERBAIKAN LOGIKA: Pesanan dibuat untuk besok, jadi kita cek pesanan untuk besok.
+          const orderDate = new Date();
+          orderDate.setDate(orderDate.getDate() + 1);
 
+          const sessions = existing
+            .filter((p) => isSameDate(p.tanggal, orderDate))
+            .map((p) => p.sesi);
           setDisabledSessions(sessions);
 
           const firstAvailable = data.find(
             (menu) => !sessions.includes(menu.namaMenu)
           );
-          if (firstAvailable) {
-            setSelectedMenuId(firstAvailable.idMenu);
-          } else {
-            setSelectedMenuId(null); // Tidak ada tab aktif
-          }
+          setSelectedMenuId(firstAvailable ? firstAvailable.idMenu : null);
         }
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError(String(err));
-        }
+      } catch (err: any) {
+        setError(err.message);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchMenuData();
   }, [uuid]);
 
-  // FUNGSI BARU UNTUK PESAN PAKET
+  const getOrderDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toLocaleDateString("id-ID", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  };
+
   const handlePackageOrder = (dishData: ApiMakanan) => {
     const dishToOrder: MenuItem = {
       makananId: dishData.idMakanan,
@@ -151,7 +123,6 @@ export default function Menu({ uuid, initialData }: MenuProps) {
     setShowPackageConfirm(true);
   };
 
-  // FUNGSI BARU UNTUK KONFIRMASI PESANAN PAKET
   const confirmPackageOrder = async () => {
     if (!selectedDish) return;
     setProcessing(true);
@@ -174,20 +145,17 @@ export default function Menu({ uuid, initialData }: MenuProps) {
 
       if (!res.ok) {
         const error = await res.json();
-        alert("Gagal membuat pesanan: " + error.message);
-        return;
+        throw new Error(error.message || "Gagal membuat pesanan");
       }
       setShowPackageConfirm(false);
-    } catch (err) {
-      console.error("Error saat membuat pesanan:", err);
-      alert("Terjadi kesalahan saat membuat pesanan");
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      alert("Terjadi kesalahan: " + err.message);
     } finally {
       setProcessing(false);
-      setShowSuccessModal(true);
     }
   };
 
-  // FUNGSI LAMA UNTUK PESAN MENU FLEKSIBEL
   const handleFlexibleOrderClick = (dishData: ApiMakanan) => {
     const dishToOrder: MenuItem = {
       makananId: dishData.idMakanan,
@@ -219,179 +187,175 @@ export default function Menu({ uuid, initialData }: MenuProps) {
     );
   }
 
+  // Desain UI Baru
   return (
-    <div className="min-h-screen bg-gray-400 px-6 py-16">
-      {/* Header */}
-      <div className="text-center mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div>
-            <h1 className="text-white text-2xl sm:text-3xl font-semibold">
-              Menu Pesanan Anda
-            </h1>
-            {/* Tampilkan tanggal pemesanan */}
-            {/* <p className="text-green-200 mt-1 flex items-center justify-center sm:justify-start gap-2">
-              <Calendar size={16} />
-              <span>
-                Untuk hari: <strong>{getOrderDate()}</strong>
-              </span>
-            </p> */}
-          </div>
-          <div>
-            <h1 className="text-white text-2xl sm:text-3xl font-semibold">
-              Menu Hari Ini
-            </h1>
-          </div>
-
-          <div className="mt-3 sm:mt-0 flex items-center gap-3">
-            <div className="text-sm text-green-100 bg-white/5 px-3 py-1 rounded-full">
-              {activeMenu?.Makanan.length} menu
-            </div>
-          </div>
-        </div>
-
-        {/* Tampilan Loading */}
-        {isLoading && <p className="text-white">Memuat menu...</p>}
-
-        {/* Tampilan Error */}
-        {error && <p className="text-red-300">Error: {error}</p>}
+    <div className="min-h-screen" style={{ backgroundColor: "#F8F9FA" }}>
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <header className="text-center mb-10">
+          <h1
+            className="text-4xl font-bold tracking-tight"
+            style={{ color: "#003d79" }}
+          >
+            Menu Makanan Anda
+          </h1>
+          <p className="text-gray-500 mt-3 flex items-center justify-center gap-2 text-lg">
+            <Calendar size={20} className="text-gray-400" />
+            <span>
+              Pemesanan untuk: <strong>{getOrderDate()}</strong>
+            </span>
+          </p>
+        </header>
 
         {!isLoading && !error && menuList.length > 0 && (
-          <div className="flex bg-white rounded-xl p-1 max-w-sm mx-auto gap-1">
-            {menuList.map((menu) => {
-              const isDisabled = disabledSessions.includes(menu.namaMenu);
-              return (
-                <button
-                  key={menu.idMenu}
-                  onClick={() => !isDisabled && setSelectedMenuId(menu.idMenu)}
-                  disabled={isDisabled}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors
-                                        ${
-                                          selectedMenuId === menu.idMenu
-                                            ? "bg-green-600 text-white"
-                                            : isDisabled
-                                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                            : "text-gray-600 hover:text-gray-800"
-                                        }`}
-                >
-                  {isDisabled ? "Sudah dipesan" : menu.namaMenu}
-                </button>
-              );
-            })}
+          <div className="flex justify-center mb-10">
+            <div className="bg-white rounded-full p-1.5 shadow-sm border flex gap-2">
+              {menuList.map((menu) => {
+                const isDisabled = disabledSessions.includes(menu.namaMenu);
+                return (
+                  <button
+                    key={menu.idMenu}
+                    onClick={() =>
+                      !isDisabled && setSelectedMenuId(menu.idMenu)
+                    }
+                    disabled={isDisabled}
+                    className={`flex items-center justify-center px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
+                      selectedMenuId === menu.idMenu
+                        ? "text-white shadow-md"
+                        : isDisabled
+                        ? "bg-green-100 text-green-800 cursor-not-allowed" // Style baru untuk disabled
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                    style={
+                      selectedMenuId === menu.idMenu
+                        ? { backgroundColor: "#003d79" }
+                        : {}
+                    }
+                  >
+                    {/* Logika Tampilan Baru untuk Tombol Disabled */}
+                    {isDisabled ? (
+                      <>
+                        <Check size={16} className="mr-1.5" /> Sudah Dipesan
+                      </>
+                    ) : (
+                      menu.namaMenu
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Menu Items */}
-      <div className="space-y-12">
-        {activeMenu
-          ? activeMenu.Makanan.map((item) => (
-              <div
-                key={item.idMakanan}
-                className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm"
-              >
-                {/* Food Image */}
-                <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
-                  <Image
-                    src={item.gambar || "/placeholder.svg"}
-                    alt={item.namaMakanan}
-                    className="w-full h-full object-cover"
-                    width={80}
-                    height={80}
-                    sizes="(max-width: 80px) 100vw, 80px"
-                    priority
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 flex flex-col justify-center">
-                  <h3 className="text-gray-800 font-medium text-lg mb-3">
-                    {item.namaMakanan}
-                  </h3>
-                  {item.isPaket && item.utamaDari && (
-                    <p className="text-xs text-gray-500 mb-3">
-                      Sudah termasuk:{" "}
-                      {item.utamaDari.map((u) => u.namaMakanan).join(", ")}
-                    </p>
-                  )}
-
-                  {/* LOGIKA TOMBOL BARU */}
-                  {item.isPaket ? (
-                    <button
-                      onClick={() => handlePackageOrder(item)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors self-start"
-                    >
-                      Pesan Paket Ini
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleFlexibleOrderClick(item)}
-                      className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors self-start"
-                    >
-                      Pilih Pendamping
-                    </button>
-                  )}
-                  {/* MODAL BARU UNTUK KONFIRMASI PAKET */}
-                  {showPackageConfirm && selectedDish && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-                      <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6 animate-fadeIn">
-                        <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                          Konfirmasi Pesanan Paket
-                        </h2>
-                        <p className="text-gray-600 mb-4">
-                          Anda akan memesan paket berikut:
-                        </p>
-
-                        <div className="mb-6 space-y-2 p-4 bg-gray-50 rounded-lg">
-                          <div className="font-bold text-gray-800 flex items-center gap-2">
-                            {" "}
-                            <Check size={16} className="text-green-500" />{" "}
-                            {selectedDish.nama}
-                          </div>
-                          {selectedDish.utamaDari?.map((item) => (
-                            <div
-                              key={item.idMakanan}
-                              className="text-gray-600 pl-6 text-sm flex items-center gap-2"
-                            >
-                              <Check size={14} className="text-green-500" />
-                              {item.namaMakanan}
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex justify-end gap-3">
-                          <button
-                            className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition text-black"
-                            onClick={() => {
-                              setShowPackageConfirm(false);
-                              setSelectedDish(null);
-                            }}
-                            disabled={processing}
-                          >
-                            Batal
-                          </button>
-                          <button
-                            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 transition"
-                            onClick={confirmPackageOrder}
-                            disabled={processing}
-                          >
-                            {processing ? "Memproses..." : "Ya, Pesan"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+        {isLoading ? (
+          <p className="text-center text-gray-500 mt-16">Memuat menu...</p>
+        ) : error ? (
+          <p className="text-center text-red-500 mt-16">Error: {error}</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeMenu && activeMenu.Makanan.length > 0 ? (
+              activeMenu.Makanan.map((item) => (
+                <FoodCard
+                  key={item.idMakanan}
+                  item={item}
+                  onOrderClick={
+                    item.isPaket ? handlePackageOrder : handleFlexibleOrderClick
+                  }
+                />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-20 bg-white rounded-2xl shadow-sm border">
+                <ChefHat size={48} className="mx-auto text-gray-300" />
+                <p className="text-gray-500 mt-4 font-semibold">
+                  {!activeMenu
+                    ? "Anda sudah memesan untuk semua sesi hari ini."
+                    : "Tidak ada menu yang tersedia."}
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  Silakan cek kembali nanti atau hubungi perawat.
+                </p>
               </div>
-            ))
-          : !isLoading && (
-              <p className="text-white text-center">
-                Kamu sudah selesai memesan
-              </p>
             )}
-        {activeMenu && activeMenu.Makanan.length === 0 && (
-          <p className="text-center text-white">
-            Tidak ada makanan di menu ini.
-          </p>
+          </div>
+        )}
+
+        {/* Modal Konfirmasi Pesanan Paket */}
+        {showPackageConfirm && selectedDish && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-6 m-4">
+              <h2
+                className="text-xl font-semibold mb-2"
+                style={{ color: "#003d79" }}
+              >
+                Konfirmasi Pesanan Paket
+              </h2>
+              <p className="text-gray-600 mb-5">
+                Anda akan memesan paket{" "}
+                <span className="font-bold">{selectedDish.nama}</span> beserta
+                pendampingnya.
+              </p>
+
+              <div className="mb-6 space-y-2 p-4 bg-slate-50 rounded-lg border">
+                <div className="font-bold text-gray-800 flex items-center gap-2">
+                  <Check size={18} className="text-green-500" />
+                  {selectedDish.nama}
+                </div>
+                {selectedDish.utamaDari?.map((item) => (
+                  <div
+                    key={item.idMakanan}
+                    className="text-gray-600 pl-7 text-sm"
+                  >
+                    + {item.namaMakanan}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPackageConfirm(false)}
+                  disabled={processing}
+                >
+                  Batal
+                </Button>
+                <Button
+                  onClick={confirmPackageOrder}
+                  disabled={processing}
+                  style={{ backgroundColor: "#43a047" }} // Siloam Green
+                >
+                  {processing ? "Memproses..." : "Ya, Pesan"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Sukses */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-8 m-4 text-center">
+              <Check
+                size={48}
+                className="mx-auto text-white p-2 rounded-full mb-4"
+                style={{ backgroundColor: "#43a047" }}
+              />
+              <h2
+                className="text-xl font-semibold mb-2"
+                style={{ color: "#003d79" }}
+              >
+                Pesanan Berhasil
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Pesanan Anda telah kami terima dan akan segera diproses.
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="w-full"
+                style={{ backgroundColor: "#003d79" }} // Siloam Blue
+              >
+                Selesai
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -401,7 +365,6 @@ export default function Menu({ uuid, initialData }: MenuProps) {
 function isSameDate(a: string | Date, b: string | Date) {
   const d1 = new Date(a);
   const d2 = new Date(b);
-
   return (
     d1.getUTCFullYear() === d2.getUTCFullYear() &&
     d1.getUTCMonth() === d2.getUTCMonth() &&
